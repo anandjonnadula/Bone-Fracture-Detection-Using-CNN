@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register | Clinical Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=12">
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            document.body.classList.add("dark-mode"); // Force dark mode for aesthetics
+        });
+    </script>
+</head>
+<body class="auth-page-bg">
+    
+    <div style="text-align: center; margin-bottom: 2rem; position: relative; z-index: 10;">
+        <div style="background: white; width: 70px; height: 70px; border-radius: 18px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid #e0f2fe;">
+            <svg style="color: #0d9488;" width="36" height="36" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
+        </div>
+        <h1 style="color: #0d9488; font-size: 1.875rem; font-weight: 800; letter-spacing: -0.025em;">Bone Fracture Detection Using CNN</h1>
+        <p style="color: #64748b; font-weight: 500; font-size: 0.95rem;">Secure Medical Enrollment Portal</p>
+    </div>
+
+    <div class="card medical-card" style="width: 100%; max-width: 400px; padding: 2.5rem; position: relative; z-index: 10; border-radius: 20px;">
+        <h2 class="panel-title" style="text-align: center; margin-bottom: 2rem; font-size: 1.25rem; font-weight: 700;">Registration</h2>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="badge badge-{{ 'danger' if category == 'error' else 'success' }}" style="width: 100%; margin-bottom: 1.5rem; padding: 0.75rem; border-radius: 8px; text-transform: none;">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form action="/register" method="post">
+            <div class="form-group" style="margin-bottom: 1.25rem;">
+                <label class="form-label" style="display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.85rem;">Username</label>
+                <input type="text" name="username" class="form-input" required placeholder="Choose username">
+            </div>
+            <div class="form-group" style="margin-bottom: 1.5rem;">
+                <label class="form-label" style="display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.85rem;">Password</label>
+                <input type="password" name="password" class="form-input" required placeholder="Create password">
+            </div>
+            <button type="submit" class="btn btn-secondary" style="width: 100%; padding: 0.875rem; font-size: 0.95rem; margin-top: 0.5rem; background: #0d9488; color: white; border: none; font-weight: 600; border-radius: 10px;">Register</button>
+        </form>
+        
+        <div style="text-align: center; margin-top: 2rem; font-size: 0.875rem; color: #64748b;">
+            Already have an account? <a href="/login" style="color: #0d9488; text-decoration: none; font-weight: 700;">Login</a>
+        </div>
+
+        <!-- Subtle Staff Link -->
+        <div style="text-align: center; margin-top: 3rem; padding-top: 1rem; border-top: 1px dashed #e2e8f0;">
+            <a href="/register-clinical" style="color: #94a3b8; font-size: 0.75rem; text-decoration: none; opacity: 0.3; transition: opacity 0.3s; font-weight: 500;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.3'">Clinic Staff? Enroll here</a>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient History | Clinical Dashboard</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=12">
+    <script>
+        function toggleDarkMode() {
+            document.body.classList.toggle("dark-mode");
+            localStorage.setItem("theme", document.body.classList.contains("dark-mode") ? "dark" : "light");
+        }
+        window.addEventListener('DOMContentLoaded', () => {
+            if(localStorage.getItem("theme") === "dark") document.body.classList.add("dark-mode");
+        });
+    </script>
+</head>
+<body>
+
+    <!-- TOP NAVIGATION -->
+    <nav class="top-nav">
+        <div class="nav-container">
+            <div style="display: flex; align-items: center; gap: 2rem;">
+                <a href="/" class="nav-brand">
+                    <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
+                    Bone Fracture Detection Using CNN
+                </a>
+                                                                                                                <div class="nav-links">
+                    <a href="/">Upload Scan</a>
+                    <a href="/patient">My Records</a>
+                    {% if session.role in ['doctor', 'admin'] %}
+                        <a href="/doctor">Doctor Review</a>
+                        <a href="/history" class="active">History</a>
+                    {% endif %}
+                    {% if session.role == 'admin' %}
+                        <a href="/admin">Analytics</a>
+                    {% endif %}
+
+                    {% if session.role in ['patient', 'admin'] %}
+                        <a href="/hospitals">Facility Locator</a>
+                    {% endif %}
+                    <a href="/logout" style="color: #ef4444; border-left: 1px solid var(--border-color); padding-left: 1rem; margin-left: 0.5rem;">Logout</a>
+                </div>
+            </div>
+            
+            <button class="theme-switch" onclick="toggleDarkMode()">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+            </button>
+        </div>
+    </nav>
+
+    <main class="app-layout">
+        <div class="card" style="padding: 0; overflow: hidden;">
+            <div class="panel-header" style="padding: 1.5rem 1.5rem 1rem 1.5rem; border-bottom: 1px solid var(--border-color); margin: 0; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h1 class="panel-title" style="font-size: 1.25rem;">Historical Diagnostic Archive</h1>
+                    <p style="color: var(--text-light); font-size: 0.875rem; margin-top: 0.2rem;">Complete log of all scans processed by the system.</p>
+                </div>
+            </div>
+
+            {% if data and data|length > 0 %}
+            <div style="overflow-x: auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px; text-align: center;">ID</th>
+                            <th style="width: 80px;">Scan</th>
+                            <th>System Diagnosis</th>
+                            <th>Confidence</th>
+                            <th>Severity</th>
+                            <th>Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in data %}
+                        <tr>
+                            <td style="text-align: center; color: var(--text-light); font-weight: 500;">#{{ row[0] }}</td>
+                            <td>
+                                <div style="width: 50px; height: 50px; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--border-color);">
+                                    <img src="{{ row[1] }}" alt="Scan" style="width:100%; height:100%; object-fit: cover;">
+                                </div>
+                            </td>
+                            <td>
+                                {% if 'No Fracture' in row[2] %}
+                                <span style="font-weight: 600; color: var(--success);">{{ row[2] }}</span>
+                                {% else %}
+                                <span style="font-weight: 600; color: var(--danger);">{{ row[2] }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span style="font-weight: 600; color: var(--text-dark);">{{ row[3] }}%</span>
+                            </td>
+                            <td>
+                                {% if row[4] %}
+                                    {% if row[4] == 'Severe' %}
+                                        <span class="badge badge-danger">Severe</span>
+                                    {% elif row[4] == 'Moderate' %}
+                                        <span class="badge badge-warning">Moderate</span>
+                                    {% else %}
+                                        <span class="badge badge-success">Mild/None</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span style="color:var(--text-light); font-size:0.875rem;">N/A</span>
+                                {% endif %}
+                            </td>
+                            <td style="font-size:0.875rem; color:var(--text-light);">{{ row[5] }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div style="padding: 4rem 2rem; text-align: center; color: var(--text-light);">
+                <svg style="width: 48px; height: 48px; margin: 0 auto 1rem; color: var(--border-color);" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                <div style="font-size: 1rem; font-weight: 500; color: var(--text-dark);">No medical records found</div>
+                <div style="font-size: 0.875rem; margin-top: 0.25rem;">Upload an X-ray to generate the first diagnostic entry.</div>
+            </div>
+            {% endif %}
+
+        </div>
+    </main>
+
+</body>
+</html>
