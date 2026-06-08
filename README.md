@@ -56,6 +56,8 @@ Bone-Fracture-Detection/
 ├── model/
 │   ├── cnn_model.py
 │   ├── predict.py
+│   ├── train_model_stage1.py
+│   ├── train_model_stage2.py
 │   └── saved_model/
 │       └── bone_fracture_cnn.h5
 │
@@ -65,6 +67,13 @@ Bone-Fracture-Detection/
 │
 ├── templates/
 │   ├── index.html
+│   ├── doctor_dashboard.html
+│   ├── hospitals.html
+│   ├── login.html
+│   ├── patient_history.html
+│   ├── patient_dashboard.html
+│   ├── register_clinical.html
+│   ├── register.html
 │   └── result.html
 │
 ├── static/
@@ -73,7 +82,6 @@ Bone-Fracture-Detection/
 │   ├── images/
 │   └── uploads/
 │
-├── train_model.py
 ├── requirements.txt
 └── README.md
 ```
