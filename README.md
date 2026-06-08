@@ -58,12 +58,7 @@ Bone-Fracture-Detection/
 │   ├── predict.py
 │   ├── train_model_stage1.py
 │   ├── train_model_stage2.py
-│   └── saved_model/
-│       └── bone_fracture_cnn.h5
 │
-├── dataset/
-│   ├── train/
-│   └── test/
 │
 ├── templates/
 │   ├── index.html
@@ -88,14 +83,6 @@ Bone-Fracture-Detection/
 
 ---
 
-## ⚙️ Installation
-
-### Clone the Repository
-
-```bash
-git clone https://github.com/your-username/Bone-Fracture-Detection.git
-cd Bone-Fracture-Detection
-```
 
 ### Create Virtual Environment
 
@@ -111,12 +98,6 @@ python -m venv venv
 venv\Scripts\activate
 ```
 
-#### Linux / macOS
-
-```bash
-source venv/bin/activate
-```
-
 ### Install Dependencies
 
 ```bash
@@ -128,13 +109,15 @@ pip install -r requirements.txt
 ## 🧠 Train the Model
 
 ```bash
-python train_model.py
+python train_model_stage1.py
+python train_model_stage2.py
 ```
 
 The trained model will be saved as:
 
 ```text
-model/saved_model/bone_fracture_cnn.h5
+model/saved_model/stage1_model.h5
+model/saved_model/stage2_model.h5
 ```
 
 ---
@@ -181,15 +164,6 @@ http://127.0.0.1:5000
 * Integration with hospital management systems.
 * Mobile application deployment.
 * Cloud-based prediction services.
-
----
-
-## 👨‍💻 Team Members
-
-* D. Vasantha
-* B. Varshitha
-* J. Anand
-* B. Chandrika
 
 ---
 
