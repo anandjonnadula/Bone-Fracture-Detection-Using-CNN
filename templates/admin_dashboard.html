@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}Analytics | Bone Fracture Detection{% endblock %}
+
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<main class="app-layout">
+    <div class="card">
+        <div class="panel-header">
+            <span class="badge badge-danger" style="margin-bottom: 0.5rem;">Access Level: Administrator</span>
+            <h1 class="panel-title" style="font-size: 1.5rem;">System Analytics</h1>
+            <p style="color: var(--text-light); font-size: 0.875rem;">Operational overview of scans, findings, and clinical review activity.</p>
+        </div>
+
+        <!-- STAT TILES -->
+        <div class="stat-grid">
+            <div class="stat-tile">
+                <div class="stat-value">{{ total_scans }}</div>
+                <div class="stat-label">Total Scans</div>
+            </div>
+            <div class="stat-tile">
+                <div class="stat-value" style="color: var(--danger);">{{ fractures }}</div>
+                <div class="stat-label">Fractures Detected</div>
+            </div>
+            <div class="stat-tile">
+                <div class="stat-value" style="color: var(--success);">{{ no_fractures }}</div>
+                <div class="stat-label">Clear Scans</div>
+            </div>
+            <div class="stat-tile">
+                <div class="stat-value" style="color: #0369a1;">{{ pending }}</div>
+                <div class="stat-label">Pending Reviews</div>
+            </div>
+            <div class="stat-tile">
+                <div class="stat-value">{{ reviewed }}</div>
+                <div class="stat-label">Doctor Reviewed</div>
+            </div>
+        </div>
+
+        <div class="responsive-2col" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+            <div style="border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem;">
+                <h3 style="font-size: 0.85rem; font-weight: 600; text-transform: uppercase; color: var(--text-light); margin-bottom: 1rem;">Fracture Type Distribution</h3>
+                <div style="height: 260px;">
+                    {% if type_rows %}
+                    <canvas id="typeChart" role="img" aria-label="Bar chart of detected fracture types"></canvas>
+                    {% else %}
+                    <p style="color: var(--text-light); font-size: 0.875rem;">No fracture detections recorded yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+            <div style="border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem;">
+                <h3 style="font-size: 0.85rem; font-weight: 600; text-transform: uppercase; color: var(--text-light); margin-bottom: 1rem;">Scan Volume (last 14 days with activity)</h3>
+                <div style="height: 260px;">
+                    {% if by_day %}
+                    <canvas id="volumeChart" role="img" aria-label="Line chart of scans per day"></canvas>
+                    {% else %}
+                    <p style="color: var(--text-light); font-size: 0.875rem;">No scans recorded yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="responsive-2col" style="display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem;">
+            <div style="border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem;">
+                <h3 style="font-size: 0.85rem; font-weight: 600; text-transform: uppercase; color: var(--text-light); margin-bottom: 1rem;">Registered Users</h3>
+                {% for row in users_by_role %}
+                <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.875rem;">
+                    <span style="color: var(--text-dark); font-weight: 500; text-transform: capitalize;">{{ row['role'] }}s</span>
+                    <span style="font-weight: 700; color: var(--text-dark);">{{ row['c'] }}</span>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div style="border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem; overflow-x: auto;">
+                <h3 style="font-size: 0.85rem; font-weight: 600; text-transform: uppercase; color: var(--text-light); margin-bottom: 1rem;">Recent Activity</h3>
+                <table class="data-table">
+                    <thead>
+                        <tr><th>ID</th><th>Patient</th><th>Finding</th><th>Severity</th><th>Date</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for r in recent %}
+                        <tr>
+                            <td>#{{ r['id'] }}</td>
+                            <td>{{ r['patient_name'] or '—' }}</td>
+                            <td style="color: {% if r['result'] and 'No Fracture' in r['result'] %}var(--success){% else %}var(--danger){% endif %}; font-weight: 600;">{{ r['result'] }}</td>
+                            <td>{{ r['severity'] or '—' }}</td>
+                            <td style="color: var(--text-light); white-space: nowrap;">{{ r['date'] }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const typeData = {{ type_rows | map(attribute='ftype') | list | tojson }};
+    const typeCounts = {{ type_rows | map(attribute='c') | list | tojson }};
+    const dayLabels = {{ by_day | map(attribute='day') | list | tojson }};
+    const dayCounts = {{ by_day | map(attribute='c') | list | tojson }};
+
+    function colors() {
+        const dark = document.body.classList.contains("dark-mode");
+        return { text: dark ? "#94a3b8" : "#64748b", grid: dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)" };
+    }
+
+    let charts = [];
+    function initCharts() {
+        const c = colors();
+        const common = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { ticks: { color: c.text, font: { size: 9 } }, grid: { display: false } },
+                y: { ticks: { color: c.text, precision: 0 }, grid: { color: c.grid }, beginAtZero: true }
+            }
+        };
+        const typeEl = document.getElementById("typeChart");
+        if (typeEl && typeData.length) {
+            charts.push(new Chart(typeEl, {
+                type: "bar",
+                data: { labels: typeData, datasets: [{ data: typeCounts, backgroundColor: "rgba(59,130,246,0.6)", borderColor: "#3b82f6", borderWidth: 1 }] },
+                options: common
+            }));
+        }
+        const volEl = document.getElementById("volumeChart");
+        if (volEl && dayLabels.length) {
+            charts.push(new Chart(volEl, {
+                type: "line",
+                data: { labels: dayLabels, datasets: [{ data: dayCounts, borderColor: "#10b981", backgroundColor: "rgba(16,185,129,0.1)", fill: true, tension: 0.3 }] },
+                options: common
+            }));
+        }
+    }
+
+    window.updateChartTheme = function () {
+        const c = colors();
+        charts.forEach(ch => {
+            ch.options.scales.x.ticks.color = c.text;
+            ch.options.scales.y.ticks.color = c.text;
+            ch.options.scales.y.grid.color = c.grid;
+            ch.update();
+        });
+    };
+
+    window.addEventListener("DOMContentLoaded", initCharts);
+</script>
+{% endblock %}

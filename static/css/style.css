@@ -505,3 +505,212 @@ body {
 .hover-glow:hover {
     box-shadow: 0 0 15px rgba(37, 99, 235, 0.2);
 }
+
+/* =========================================================
+   V2 ADDITIONS — flash alerts, responsive nav, prob bars,
+   footer, stat tiles, missing badge/animation definitions
+========================================================= */
+
+/* Missing pieces referenced by templates */
+.badge-info { background: rgba(3, 105, 161, 0.1); color: #0369a1; }
+.dark-mode .badge-info { background: rgba(56, 189, 248, 0.12); color: #38bdf8; }
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+}
+
+/* ---------- Flash messages ---------- */
+.flash-stack {
+    max-width: 1200px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 0 2rem;
+}
+.flash-stack:not(:empty) { margin-top: 1rem; }
+.alert {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    border: 1px solid transparent;
+    animation: fadeIn 0.3s ease;
+}
+.alert-danger { background: var(--danger-bg); color: var(--danger); border-color: rgba(220, 38, 38, 0.25); }
+.alert-success { background: var(--success-bg); color: var(--success); border-color: rgba(5, 150, 105, 0.25); }
+.alert-info { background: rgba(3, 105, 161, 0.08); color: #0369a1; border-color: rgba(3, 105, 161, 0.25); }
+.dark-mode .alert-info { color: #38bdf8; }
+.alert-close {
+    background: none;
+    border: none;
+    color: inherit;
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0.7;
+}
+.alert-close:hover { opacity: 1; }
+
+/* ---------- Nav additions ---------- */
+.nav-left { display: flex; align-items: center; gap: 2rem; min-width: 0; }
+.nav-right { display: flex; align-items: center; gap: 0.75rem; }
+.nav-user {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-light);
+    border: 1px solid var(--border-color);
+    padding: 0.25rem 0.7rem;
+    border-radius: 9999px;
+    white-space: nowrap;
+}
+.nav-logout { color: #ef4444 !important; }
+.nav-burger {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-dark);
+    padding: 0.4rem;
+}
+.nav-links a { white-space: nowrap; }
+
+/* ---------- Probability bars (results page) ---------- */
+.prob-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.6rem; }
+.prob-label {
+    width: 130px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-dark);
+    text-align: right;
+    flex-shrink: 0;
+}
+.prob-track {
+    flex: 1;
+    height: 14px;
+    background: var(--bg-main);
+    border: 1px solid var(--border-color);
+    border-radius: 9999px;
+    overflow: hidden;
+}
+.prob-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary), #4338ca);
+    border-radius: 9999px;
+    transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.prob-fill.top { background: linear-gradient(90deg, var(--danger), #b91c1c); }
+.prob-value {
+    width: 60px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    flex-shrink: 0;
+}
+
+/* ---------- Stat tiles (admin) ---------- */
+.stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+.stat-tile {
+    background: var(--bg-main);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 1.1rem 1.25rem;
+}
+.stat-value { font-size: 1.75rem; font-weight: 800; color: var(--text-dark); line-height: 1.2; }
+.stat-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-light);
+    margin-top: 0.25rem;
+}
+
+/* ---------- Footer ---------- */
+.site-footer {
+    max-width: 1200px;
+    width: 100%;
+    margin: 2.5rem auto 0;
+    padding: 1.25rem 2rem 2rem;
+    border-top: 1px solid var(--border-color);
+    color: var(--text-light);
+    font-size: 0.78rem;
+    line-height: 1.5;
+}
+.site-footer .footer-credits { margin-top: 0.4rem; opacity: 0.8; }
+
+/* ---------- Forms ---------- */
+.form-group { margin-bottom: 0; }
+.form-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--text-dark);
+}
+.upload-zone.dragover {
+    border-color: var(--primary);
+    background: rgba(37, 99, 235, 0.06);
+}
+.upload-error {
+    margin-top: 0.75rem;
+    color: var(--danger);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+/* ---------- Focus visibility (a11y) ---------- */
+a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+/* ---------- Learn page ---------- */
+.learn-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1rem;
+}
+.learn-card {
+    background: var(--bg-main);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 1.25rem;
+}
+.learn-card h3 { font-size: 1rem; color: var(--text-dark); margin-bottom: 0.4rem; }
+.learn-card p { font-size: 0.85rem; color: var(--text-light); line-height: 1.55; }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 900px) {
+    .top-nav { height: auto; padding: 0.5rem 1rem; }
+    .nav-container { flex-wrap: wrap; }
+    .nav-burger { display: flex; }
+    .nav-user { display: none; }
+    .nav-links {
+        display: none;
+        width: 100%;
+        flex-direction: column;
+        gap: 0.25rem;
+        padding: 0.75rem 0;
+        order: 10;
+    }
+    .nav-links.open { display: flex; }
+    .nav-links a { padding: 0.6rem 0.5rem; border-bottom: none; border-radius: var(--radius-sm); }
+    .nav-links a:hover, .nav-links a.active { background: var(--bg-main); }
+    .nav-left { gap: 0; flex: 1; }
+
+    .app-layout { padding: 0 1rem; margin-top: 1rem; }
+    .card { padding: 1.25rem; }
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    .responsive-2col, .responsive-3col { grid-template-columns: 1fr !important; }
+    .flash-stack { padding: 0 1rem; }
+    .prob-label { width: 96px; font-size: 0.72rem; }
+}

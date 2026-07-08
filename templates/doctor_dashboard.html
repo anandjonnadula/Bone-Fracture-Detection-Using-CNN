@@ -1,161 +1,134 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bone Fracture Detection Using CNN - Doctor Review</title>
-    
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=12">
-    <script>
-        function toggleDarkMode() {
-            document.body.classList.toggle("dark-mode");
-            localStorage.setItem("theme", document.body.classList.contains("dark-mode") ? "dark" : "light");
-        }
-        window.addEventListener('DOMContentLoaded', () => {
-            if(localStorage.getItem("theme") === "dark") document.body.classList.add("dark-mode");
-        });
-    </script>
-</head>
-<body>
+{% extends "base.html" %}
+{% block title %}Doctor Review | Bone Fracture Detection{% endblock %}
 
-    <!-- TOP NAVIGATION -->
-    <nav class="top-nav">
-        <div class="nav-container">
-            <div style="display: flex; align-items: center; gap: 2rem;">
-                <a href="/" class="nav-brand" style="font-size: 1.05rem;">
-                    Bone Fracture Detection Using CNN
-                </a>
-                                                                                                                <div class="nav-links">
-                    <a href="/">Upload Scan</a>
-                    <a href="/patient">My Records</a>
-                    {% if session.role in ['doctor', 'admin'] %}
-                        <a href="/doctor" class="active">Doctor Review</a>
-                        <a href="/history">History</a>
-                    {% endif %}
-                    {% if session.role == 'admin' %}
-                        <a href="/admin">Analytics</a>
-                    {% endif %}
-
-                    {% if session.role in ['patient', 'admin'] %}
-                        <a href="/hospitals">Facility Locator</a>
-                    {% endif %}
-                    <a href="/logout" style="color: #ef4444; border-left: 1px solid var(--border-color); padding-left: 1rem; margin-left: 0.5rem;">Logout</a>
-                </div>
+{% block content %}
+<main class="app-layout" style="max-width: 950px;">
+    <div class="card" style="padding:0; overflow:hidden;">
+        <div class="panel-header" style="display: flex; justify-content: space-between; align-items: flex-start; padding: 1.5rem 1.5rem 1rem 1.5rem; margin:0; border-bottom: 1px solid var(--border-color);">
+            <div>
+                <span class="badge badge-success" style="margin-bottom: 0.5rem;">Access Level: Medical Professional</span>
+                <h1 class="panel-title" style="font-size: 1.5rem; margin-top: 0;">Case Review Queue</h1>
+                <p style="color: var(--text-light); font-size: 0.875rem;">Patient-requested reviews are listed first. Append physician notes and record the final decision.</p>
             </div>
-            
-            <button class="theme-switch" onclick="toggleDarkMode()">
-                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
-            </button>
         </div>
-    </nav>
 
-    <main class="app-layout" style="max-width: 900px;">
-        <div class="card" style="padding:0; overflow:hidden;">
-            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: flex-start; padding: 1.5rem 1.5rem 1rem 1.5rem; margin:0; border-bottom: 1px solid var(--border-color);">
-                <div>
-                    <span class="badge badge-success" style="margin-bottom: 0.5rem;">Access Level: Medical Professional</span>
-                    <h1 class="panel-title" style="font-size: 1.5rem; margin-top: 0;"></h1>
-                    <p style="color: var(--text-light); font-size: 0.875rem;">Review diagnostic results and append physician notes securely.</p>
-                </div>
-            </div>
+        {% if cases and cases|length > 0 %}
+            <div style="padding: 1.5rem; display: flex; flex-direction: column; gap: 2.5rem;">
+            {% for case in cases %}
+            <div style="border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem; background: var(--bg-main);">
 
-            {% if cases and cases|length > 0 %}
-                <div style="padding: 1.5rem; display: flex; flex-direction: column; gap: 2.5rem;">
-                {% for case in cases %}
-                <div style="border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem; background: var(--bg-main);">
-                    
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color);">
-                        <div>
-                            <div style="font-weight: 600; color: var(--text-dark); font-size: 1.1rem;">Patient Record #{{ case[0] }}</div>
-                            <div style="font-size: 0.8rem; color: var(--text-light);">Scan Date: {{ case[5] }}</div>
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color);">
+                    <div>
+                        <div style="font-weight: 600; color: var(--text-dark); font-size: 1.1rem;">
+                            Record #{{ case['id'] }}
+                            {% if case['patient_name'] %}<span style="font-weight: 500; color: var(--text-light); font-size: 0.875rem;">· patient: {{ case['patient_name'] }}</span>{% endif %}
                         </div>
-                        <div>
-                            {% if case[10] == 'PENDING' %}
-                                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.25rem;">
-                                    <span class="badge badge-info" style="font-weight: 800; border: 2px solid #0369a1; animation: pulse 2s infinite;">⚠️ PATIENT REQUESTED REVIEW</span>
-                                    <span style="font-size: 0.65rem; color: #0369a1; font-weight: 600;">Action Required</span>
-                                </div>
-                            {% elif case[7] == 'Approved' %}
-                                <span class="badge badge-success">Doctor Approved</span>
-                            {% elif case[7] == 'Rejected' %}
-                                <span class="badge badge-danger">Doctor Rejected</span>
-                            {% else %}
-                                <span class="badge badge-warning">Standard Review</span>
+                        <div style="font-size: 0.8rem; color: var(--text-light);">Scan Date: {{ case['date'] or 'Unknown' }}</div>
+                    </div>
+                    <div>
+                        {% if case['review_status'] == 'PENDING' %}
+                            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.25rem;">
+                                <span class="badge badge-info" style="font-weight: 800; border: 2px solid #0369a1; animation: pulse 2s infinite;">⚠️ Patient Requested Review</span>
+                                <span style="font-size: 0.65rem; color: #0369a1; font-weight: 600;">Action Required</span>
+                            </div>
+                        {% elif case['decision'] == 'Approved' %}
+                            <span class="badge badge-success">Approved{% if case['reviewed_by'] %} by {{ case['reviewed_by'] }}{% endif %}</span>
+                        {% elif case['decision'] == 'Rejected' %}
+                            <span class="badge badge-danger">Rejected{% if case['reviewed_by'] %} by {{ case['reviewed_by'] }}{% endif %}</span>
+                        {% else %}
+                            <span class="badge badge-warning">Standard Review</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="responsive-2col" style="display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; align-items: start;">
+                    <!-- LEFT: IMAGES + AI FINDINGS -->
+                    <div>
+                        <h3 style="font-size: 0.825rem; font-weight: 600; color: var(--text-dark); margin-bottom: 0.75rem; text-transform: uppercase;">Diagnostic Image</h3>
+
+                        <div class="scan-viewer" style="width: 100%; margin-bottom: 1rem;">
+                            <div class="scan-label">Original X-Ray</div>
+                            {% if case['image_path'] %}
+                            <img src="/{{ case['image_path'] }}" alt="Original X-ray for record {{ case['id'] }}">
                             {% endif %}
                         </div>
+                        {% if case['gradcam_path'] %}
+                        <div class="scan-viewer" style="width: 100%; margin-bottom: 1rem;">
+                            <div class="scan-label" style="background: var(--primary);">Model Attention</div>
+                            <img src="/{{ case['gradcam_path'] }}" alt="Grad-CAM heatmap for record {{ case['id'] }}">
+                        </div>
+                        {% endif %}
+
+                        <div style="background: var(--bg-card); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+                            <div style="display: flex; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.5rem; font-size: 0.875rem;">
+                                <span style="color: var(--text-light);">AI Finding:</span>
+                                <span style="font-weight: 600; text-align: right; color: {% if case['result'] and 'No Fracture' in case['result'] %}var(--success){% else %}var(--danger){% endif %}">{{ case['result'] }}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.875rem;">
+                                <span style="color: var(--text-light);">Confidence:</span>
+                                <span style="font-weight: 600; color: var(--text-dark);">{{ case['confidence'] | round(2) }}%</span>
+                            </div>
+                            {% if case['fracture_prob'] is not none %}
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.875rem;">
+                                <span style="color: var(--text-light);">Fracture probability:</span>
+                                <span style="font-weight: 600; color: var(--text-dark);">{{ case['fracture_prob'] | round(2) }}%</span>
+                            </div>
+                            {% endif %}
+                            {% if case['severity'] %}
+                            <div style="display: flex; justify-content: space-between; font-size: 0.875rem;">
+                                <span style="color: var(--text-light);">Severity:</span>
+                                <span style="font-weight: 600; color: var(--text-dark);">{{ case['severity'] }}</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% if case['pdf_path'] %}
+                        <a href="/{{ case['pdf_path'] }}" target="_blank" class="btn btn-secondary" style="margin-top: 0.75rem; width: 100%; font-size: 0.8rem;">Open PDF Report</a>
+                        {% endif %}
                     </div>
 
-                    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; align-items: start;">
-                        <!-- LEFT SIDE: IMAGES & BASIC DATA -->
-                        <div>
-                            <h3 style="font-size: 0.825rem; font-weight: 600; color: var(--text-dark); margin-bottom: 0.75rem; text-transform: uppercase;">Diagnostic Image</h3>
-                            
-                            <div class="scan-viewer" style="width: 100%; margin-bottom: 1rem;">
-                                <div class="scan-label">Original X-Ray</div>
-                                <img src="{{ case[1] }}" alt="Original X-ray">
+                    <!-- RIGHT: PHYSICIAN FORM -->
+                    <div>
+                        <h3 style="font-size: 0.825rem; font-weight: 600; color: var(--text-dark); margin-bottom: 0.75rem; text-transform: uppercase;">Physician Evaluation Form</h3>
+
+                        <form method="POST">
+                            <input type="hidden" name="id" value="{{ case['id'] }}">
+
+                            <div style="margin-bottom: 1rem;">
+                                <label class="form-label" for="notes-{{ case['id'] }}">Clinical Case Notes</label>
+                                <textarea id="notes-{{ case['id'] }}" name="notes" class="form-textarea" rows="4" placeholder="Enter detailed physician observations...">{{ case['notes'] or '' }}</textarea>
                             </div>
 
-                            <div style="background: var(--bg-card); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
-                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.875rem;">
-                                    <span style="color: var(--text-light);">Diagnostic Finding:</span>
-                                    <span style="font-weight: 600; color: {% if 'No Fracture' in case[2] %}var(--success){% else %}var(--danger){% endif %}">{{ case[2] }}</span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.875rem;">
-                                    <span style="color: var(--text-light);">Confidence:</span>
-                                    <span style="font-weight: 600; color: var(--text-dark);">{{ case[3] | round(2) }}%</span>
-                                </div>
-                                {% if case[4] %}
-                                <div style="display: flex; justify-content: space-between; font-size: 0.875rem;">
-                                    <span style="color: var(--text-light);">Severity:</span>
-                                    <span style="font-weight: 600; color: var(--text-dark);">{{ case[4] }}</span>
-                                </div>
-                                {% endif %}
+                            <div style="margin-bottom: 1.5rem;">
+                                <label class="form-label" for="diag-{{ case['id'] }}">Final Medical Diagnosis</label>
+                                <input id="diag-{{ case['id'] }}" type="text" name="final_diagnosis" class="form-input" placeholder="E.g. Displaced fracture of left tibia..." value="{{ case['final_diagnosis'] or '' }}">
                             </div>
-                        </div>
 
-                        <!-- RIGHT SIDE: FORM FOR DOCTOR -->
-                        <div>
-                            <h3 style="font-size: 0.825rem; font-weight: 600; color: var(--text-dark); margin-bottom: 0.75rem; text-transform: uppercase;">Physician Evaluation Form</h3>
-                            
-                            <form method="POST">
-                                <input type="hidden" name="id" value="{{ case[0] }}">
-                                
-                                <div style="margin-bottom: 1rem;">
-                                    <label style="display: block; font-size: 0.825rem; font-weight: 500; color: var(--text-dark); margin-bottom: 0.4rem;">Clinical Case Notes</label>
-                                    <textarea name="notes" class="form-textarea" rows="4" placeholder="Enter detailed physician observations...">{{ case[6] if case[6] else '' }}</textarea>
-                                </div>
-
-                                <div style="margin-bottom: 1.5rem;">
-                                    <label style="display: block; font-size: 0.825rem; font-weight: 500; color: var(--text-dark); margin-bottom: 0.4rem;">Final Medical Diagnosis</label>
-                                    <input type="text" name="final_diagnosis" class="form-input" placeholder="E.g. Displaced fracture of left tibia..." value="{{ case[8] if case[8] else '' }}">
-                                </div>
-
-                                <label style="display: block; font-size: 0.825rem; font-weight: 500; color: var(--text-dark); margin-bottom: 0.4rem;">Final Diagnostic Decision</label>
-                                <div style="display: flex; gap: 0.75rem;">
-                                    <button type="submit" name="decision" value="Approved" class="btn btn-primary" style="flex: 1; background-color: var(--success); padding:0.5rem; border-color:var(--success);">
-                                        Approve
-                                    </button>
-                                    <button type="submit" name="decision" value="Rejected" class="btn btn-danger" style="flex: 1; padding:0.5rem;">
-                                        Reject
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
+                            <label class="form-label">Final Diagnostic Decision</label>
+                            <div style="display: flex; gap: 0.75rem;">
+                                <button type="submit" name="decision" value="Approved" class="btn btn-primary" style="flex: 1; background-color: var(--success); padding:0.5rem; border-color:var(--success);">
+                                    Approve AI Finding
+                                </button>
+                                <button type="submit" name="decision" value="Rejected" class="btn btn-danger" style="flex: 1; padding:0.5rem;">
+                                    Reject AI Finding
+                                </button>
+                            </div>
+                            {% if case['reviewed_by'] %}
+                            <p style="font-size: 0.75rem; color: var(--text-light); margin-top: 0.75rem;">
+                                Last reviewed by <strong>{{ case['reviewed_by'] }}</strong> at {{ case['reviewed_at'] }}. Saving again updates the record and its PDF.
+                            </p>
+                            {% endif %}
+                        </form>
                     </div>
                 </div>
-                {% endfor %}
-                </div>
-            {% else %}
-            <div style="text-align: center; padding: 4rem 2rem; color: var(--text-light);">
-                <svg style="width: 48px; height: 48px; margin: 0 auto 1rem; color: var(--border-color);" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
-                <div style="font-size: 1rem; font-weight: 500; color: var(--text-dark);">No Patient Records Found</div>
-                <div style="font-size: 0.875rem; margin-top: 0.25rem;">Waiting for the system to process initial scans.</div>
             </div>
-            {% endif %}
-
+            {% endfor %}
+            </div>
+        {% else %}
+        <div style="text-align: center; padding: 4rem 2rem; color: var(--text-light);">
+            <div style="font-size: 1rem; font-weight: 500; color: var(--text-dark);">No Patient Records Found</div>
+            <div style="font-size: 0.875rem; margin-top: 0.25rem;">Waiting for the system to process initial scans.</div>
         </div>
-    </main>
-
-</body>
-</html>
+        {% endif %}
+    </div>
+</main>
+{% endblock %}

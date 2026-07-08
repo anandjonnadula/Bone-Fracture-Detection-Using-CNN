@@ -1,70 +1,89 @@
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout, GlobalAveragePooling2D
+"""Model architectures for the two-stage bone fracture detection pipeline.
+
+Both stages use MobileNetV2 transfer learning. The backbone is grafted into
+the model graph via `input_tensor` (instead of nesting it as a single layer)
+so that Grad-CAM can reach the internal conv layers of the final model
+without running into disconnected-graph errors.
+
+Pixel preprocessing (MobileNetV2 expects inputs in [-1, 1]) is baked into the
+model as a Rescaling layer, so callers always feed raw 0-255 RGB pixels. This
+removes a whole class of train/inference preprocessing mismatches.
+"""
+
+from tensorflow.keras import Input, Model
 from tensorflow.keras.applications import MobileNetV2
+from tensorflow.keras.layers import (
+    BatchNormalization,
+    Dense,
+    Dropout,
+    GlobalAveragePooling2D,
+    Rescaling,
+)
 
-def build_cnn_model(input_shape=(224, 224, 3), num_classes=1):
+IMG_SIZE = 224
+INPUT_SHAPE = (IMG_SIZE, IMG_SIZE, 3)
+
+# Name of the last activation after the final conv block of MobileNetV2 —
+# the layer Grad-CAM visualizes.
+LAST_CONV_LAYER = "out_relu"
+
+
+def _build_backbone(inputs):
+    """Graft an ImageNet-pretrained MobileNetV2 onto `inputs` (raw 0-255)."""
+    x = Rescaling(1.0 / 127.5, offset=-1.0, name="preprocess_rescale")(inputs)
+    base = MobileNetV2(input_tensor=x, include_top=False, weights="imagenet")
+    return base
+
+
+def freeze_backbone(base):
+    for layer in base.layers:
+        layer.trainable = False
+
+
+def unfreeze_top_layers(base, n_layers=40):
+    """Unfreeze the last `n_layers` of the backbone for fine-tuning.
+
+    BatchNormalization layers stay frozen: updating their statistics with
+    small medical datasets destroys the pretrained ImageNet statistics and
+    reliably hurts accuracy.
     """
-    Build a simple CNN model.
-    - num_classes=1 -> binary classification
-    - num_classes>1 -> multi-class classification
+    for layer in base.layers:
+        layer.trainable = False
+    for layer in base.layers[-n_layers:]:
+        if not isinstance(layer, BatchNormalization):
+            layer.trainable = True
+
+
+def build_stage1_model(input_shape=INPUT_SHAPE):
+    """Binary fracture / no-fracture classifier.
+
+    Output: sigmoid P(fracture) — the positive class is 'fracture'.
+    Returns (model, backbone) so training code can fine-tune the backbone.
     """
-    model = Sequential()
+    inputs = Input(shape=input_shape, name="xray_input")
+    base = _build_backbone(inputs)
+    freeze_backbone(base)
 
-    # 1st Convolution Block
-    model.add(Conv2D(32, (3, 3), activation='relu', input_shape=input_shape))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
+    x = GlobalAveragePooling2D(name="gap")(base.output)
+    x = Dropout(0.3, name="head_dropout")(x)
+    outputs = Dense(1, activation="sigmoid", name="fracture_prob")(x)
 
-    # 2nd Convolution Block
-    model.add(Conv2D(64, (3, 3), activation='relu'))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
+    model = Model(inputs, outputs, name="stage1_fracture_detector")
+    return model, base
 
-    # 3rd Convolution Block
-    model.add(Conv2D(128, (3, 3), activation='relu'))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
 
-    # Flatten
-    model.add(Flatten())
+def build_stage2_model(num_classes, input_shape=INPUT_SHAPE):
+    """12-way fracture-type classifier.
 
-    # Fully Connected Layers
-    model.add(Dense(128, activation='relu'))
-    model.add(Dropout(0.5))
-
-    # Output Layer
-    if num_classes == 1:
-        model.add(Dense(1, activation='sigmoid'))  # Binary
-        loss_fn = 'binary_crossentropy'
-    else:
-        model.add(Dense(num_classes, activation='softmax'))  # Multi-class
-        loss_fn = 'categorical_crossentropy'
-
-    # Compile Model
-    model.compile(
-        optimizer='adam',
-        loss=loss_fn,
-        metrics=['accuracy']
-    )
-
-    return model
-
-def build_transfer_learning_model(input_shape=(224, 224, 3), num_classes=12):
+    Returns (model, backbone) so training code can fine-tune the backbone.
     """
-    Build a more accurate model using Transfer Learning (MobileNetV2).
-    """
-    base_model = MobileNetV2(weights='imagenet', include_top=False, input_shape=input_shape)
-    base_model.trainable = False  # Freeze base layers initially
+    inputs = Input(shape=input_shape, name="xray_input")
+    base = _build_backbone(inputs)
+    freeze_backbone(base)
 
-    model = Sequential([
-        base_model,
-        GlobalAveragePooling2D(),
-        Dense(256, activation='relu'),
-        Dropout(0.5),
-        Dense(num_classes, activation='softmax')
-    ])
+    x = GlobalAveragePooling2D(name="gap")(base.output)
+    x = Dropout(0.35, name="head_dropout")(x)
+    outputs = Dense(num_classes, activation="softmax", name="fracture_type")(x)
 
-    model.compile(
-        optimizer='adam',
-        loss='categorical_crossentropy',
-        metrics=['accuracy']
-    )
-
-    return model
+    model = Model(inputs, outputs, name="stage2_fracture_classifier")
+    return model, base

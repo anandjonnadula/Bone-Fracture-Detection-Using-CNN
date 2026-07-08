@@ -1,0 +1,72 @@
+{
+  "stage1": {
+    "original_h5": {
+      "threshold": 0.5,
+      "full_test": {
+        "n": 594,
+        "accuracy": 0.9444,
+        "balanced_accuracy": 0.9434,
+        "recall_fracture": 0.954,
+        "f1_fracture": 0.9496,
+        "roc_auc": 0.9869
+      },
+      "clean_test": {
+        "n": 317,
+        "accuracy": 0.9527,
+        "balanced_accuracy": 0.9527,
+        "recall_fracture": 0.9527,
+        "f1_fracture": 0.9758,
+        "roc_auc": null
+      }
+    },
+    "retrained_keras": {
+      "threshold": 0.32000000000000006,
+      "full_test": {
+        "n": 594,
+        "accuracy": 0.8872,
+        "balanced_accuracy": 0.8757,
+        "recall_fracture": 0.9939,
+        "f1_fracture": 0.9063,
+        "roc_auc": 0.9776
+      },
+      "clean_test": {
+        "n": 317,
+        "accuracy": 0.9937,
+        "balanced_accuracy": 0.9937,
+        "recall_fracture": 0.9937,
+        "f1_fracture": 0.9968,
+        "roc_auc": null
+      }
+    }
+  },
+  "stage2": {
+    "original_h5": {
+      "full_test": {
+        "n": 355,
+        "top1_accuracy": 0.4,
+        "top3_accuracy": 0.6592,
+        "macro_f1": 0.3724
+      },
+      "clean_test": {
+        "n": 335,
+        "top1_accuracy": 0.406,
+        "top3_accuracy": 0.6537,
+        "macro_f1": 0.3767
+      }
+    },
+    "retrained_keras": {
+      "full_test": {
+        "n": 355,
+        "top1_accuracy": 0.3746,
+        "top3_accuracy": 0.6507,
+        "macro_f1": 0.3577
+      },
+      "clean_test": {
+        "n": 335,
+        "top1_accuracy": 0.3761,
+        "top3_accuracy": 0.6448,
+        "macro_f1": 0.3568
+      }
+    }
+  }
+}

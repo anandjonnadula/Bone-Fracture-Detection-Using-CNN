@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Model Information | Bone Fracture Detection{% endblock %}
+
+{% block content %}
+<main class="app-layout" style="max-width: 950px;">
+    <div class="card">
+        <div class="panel-header">
+            <h1 class="panel-title" style="font-size: 1.5rem;">Model Card — Two-Stage CNN Pipeline</h1>
+            <p style="color: var(--text-light); font-size: 0.875rem;">
+                Architecture, training data, and honest evaluation metrics for both neural networks.
+            </p>
+        </div>
+
+        {% for stage_key, title, subtitle in [
+            ('stage1', 'Stage 1 — Fracture Detector', 'Binary classification: fracture vs. no fracture'),
+            ('stage2', 'Stage 2 — Fracture-Type Classifier', '12-way classification of fracture type')
+        ] %}
+        {% set meta = performance[stage_key] %}
+        <div style="border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem; margin-bottom: 1.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
+                <div>
+                    <h2 style="font-size: 1.15rem; font-weight: 700; color: var(--text-dark);">{{ title }}</h2>
+                    <p style="font-size: 0.85rem; color: var(--text-light);">{{ subtitle }}</p>
+                </div>
+                {% if meta %}
+                <span class="badge badge-success">Retrained · {{ meta.trained_at[:10] }}</span>
+                {% else %}
+                <span class="badge badge-warning">Original model — retraining metadata not available</span>
+                {% endif %}
+            </div>
+
+            {% if meta %}
+            <div class="stat-grid">
+                <div class="stat-tile">
+                    <div class="stat-value" style="font-size: 1.1rem;">{{ meta.backbone }}</div>
+                    <div class="stat-label">Backbone</div>
+                </div>
+                {% if stage_key == 'stage1' and meta.test_metrics %}
+                <div class="stat-tile">
+                    <div class="stat-value">{{ (meta.test_metrics.accuracy * 100) | round(1) }}%</div>
+                    <div class="stat-label">Test Accuracy</div>
+                </div>
+                <div class="stat-tile">
+                    <div class="stat-value">{{ (meta.test_metrics.recall_fracture * 100) | round(1) }}%</div>
+                    <div class="stat-label">Fracture Recall</div>
+                </div>
+                <div class="stat-tile">
+                    <div class="stat-value">{{ (meta.test_metrics.roc_auc * 100) | round(1) }}%</div>
+                    <div class="stat-label">ROC AUC</div>
+                </div>
+                <div class="stat-tile">
+                    <div class="stat-value">{{ (meta.threshold * 100) | round(0) | int }}%</div>
+                    <div class="stat-label">Decision Threshold</div>
+                </div>
+                {% elif stage_key == 'stage2' and meta.test_metrics %}
+                <div class="stat-tile">
+                    <div class="stat-value">{{ (meta.test_metrics.top1_accuracy * 100) | round(1) }}%</div>
+                    <div class="stat-label">Top-1 Accuracy</div>
+                </div>
+                <div class="stat-tile">
+                    <div class="stat-value">{{ (meta.test_metrics.top3_accuracy * 100) | round(1) }}%</div>
+                    <div class="stat-label">Top-3 Accuracy</div>
+                </div>
+                <div class="stat-tile">
+                    <div class="stat-value">{{ meta.class_names | length }}</div>
+                    <div class="stat-label">Classes</div>
+                </div>
+                {% endif %}
+            </div>
+
+            <details style="margin-top: 0.5rem;">
+                <summary style="cursor: pointer; font-size: 0.85rem; font-weight: 600; color: var(--primary);">Training configuration</summary>
+                <ul style="font-size: 0.85rem; color: var(--text-dark); line-height: 1.8; padding-left: 1.25rem; margin-top: 0.5rem;">
+                    <li>Transfer learning from ImageNet weights; two-phase training (frozen backbone, then fine-tuning of the top layers with BatchNorm kept frozen).</li>
+                    <li>Class weighting to counter dataset imbalance{% if stage_key == 'stage1' %} (fractures are ~1:6.6 under-represented in training data){% endif %}.</li>
+                    <li>X-ray-appropriate augmentation: horizontal flips, small rotations/shifts/zoom, brightness &amp; contrast jitter.</li>
+                    <li>EarlyStopping with best-weights restore; ReduceLROnPlateau schedule.</li>
+                    {% if stage_key == 'stage1' %}<li>Decision threshold tuned on a held-out validation split (not the test set).</li>{% endif %}
+                    {% if stage_key == 'stage2' %}<li>Label smoothing 0.1 for regularization on the small dataset.</li>{% endif %}
+                </ul>
+            </details>
+            {% else %}
+            <p style="font-size: 0.875rem; color: var(--text-light); line-height: 1.6;">
+                This model has not been retrained with the new pipeline yet, so no verified metrics are
+                shown. Run <code>python model/train_model_{{ '1' if stage_key == 'stage1' else '2' }}.py</code>
+                to train and generate real evaluation data.
+            </p>
+            {% endif %}
+        </div>
+        {% endfor %}
+
+        <!-- DATASET -->
+        <div style="border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem; margin-bottom: 1.5rem;">
+            <h2 style="font-size: 1.15rem; font-weight: 700; color: var(--text-dark); margin-bottom: 0.75rem;">Training Data</h2>
+            <ul style="font-size: 0.875rem; color: var(--text-dark); line-height: 1.8; padding-left: 1.25rem;">
+                <li><strong>Stage 1:</strong> 5,345 training images (705 fracture / 4,640 no-fracture) and 594 held-out test images.</li>
+                <li><strong>Stage 2:</strong> ~1,269 training images across 12 fracture-type folders (82–159 each) and 355 test images.</li>
+                <li>Images are public-source radiographs of mixed quality and provenance; labels follow the folder structure of the source dataset.</li>
+            </ul>
+        </div>
+
+        <!-- LIMITATIONS -->
+        <div style="border-left: 4px solid var(--danger); background: var(--danger-bg); padding: 1.25rem 1.5rem; border-radius: 0 var(--radius-md) var(--radius-md) 0;">
+            <h3 style="font-size: 0.875rem; font-weight: 700; color: var(--danger); text-transform: uppercase; margin-bottom: 0.5rem;">Known limitations</h3>
+            <ul style="font-size: 0.875rem; color: var(--text-dark); line-height: 1.7; padding-left: 1.25rem;">
+                <li>Trained on a small, web-scraped dataset — not on clinical PACS data; performance on real hospital images is unverified.</li>
+                <li>No DICOM support; standard JPG/PNG only.</li>
+                <li>Grad-CAM shows model attention, which is not a clinically validated localization of the fracture.</li>
+                <li>This is a student research project. It has no regulatory clearance of any kind and must not inform real medical decisions.</li>
+            </ul>
+        </div>
+    </div>
+</main>
+{% endblock %}

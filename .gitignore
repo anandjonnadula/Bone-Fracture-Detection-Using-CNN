@@ -1,0 +1,19 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Data & user content (not part of the repo)
+dataset/
+.dataset_backups/
+database.db
+static/uploads/*
+
+# Legacy models (128 MB .h5 exceeds GitHub limits; .keras models ARE tracked)
+model/saved_model/*.h5
+
+# Local test artifacts
+Testing/
+
+# Local tooling config
+.claude/

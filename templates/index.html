@@ -1,166 +1,62 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bone Fracture Detection Using CNN | Clinical Dashboard</title>
-    
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=12">
+{% extends "base.html" %}
+{% block title %}Upload Scan | Bone Fracture Detection{% endblock %}
 
-    <script>
-        function toggleDarkMode() {
-            document.body.classList.toggle("dark-mode");
-            localStorage.setItem("theme", document.body.classList.contains("dark-mode") ? "dark" : "light");
-        }
+{% block content %}
+<main class="app-layout" style="max-width: 860px;">
 
-        window.addEventListener('DOMContentLoaded', () => {
-            if(localStorage.getItem("theme") === "dark") {
-                document.body.classList.add("dark-mode");
-            }
-        });
-
-        function handleFileSelect(event) {
-            const file = event.target.files[0];
-            const uploadZone = document.getElementById("uploadZone");
-            const previewPanel = document.getElementById("previewPanel");
-            const previewImage = document.getElementById("previewImage");
-            const fileName = document.getElementById("fileName");
-            
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    previewImage.src = e.target.result;
-                };
-                reader.readAsDataURL(file);
-
-                fileName.textContent = file.name;
-                uploadZone.classList.add("hidden");
-                previewPanel.classList.remove("hidden");
-            }
-        }
-
-        function removeFile() {
-            document.getElementById("fileInput").value = "";
-            document.getElementById("previewPanel").classList.add("hidden");
-            document.getElementById("uploadZone").classList.remove("hidden");
-        }
-
-        function submitForm() {
-            document.getElementById("btnSubmit").classList.add("hidden");
-            document.getElementById("btnLoading").classList.remove("hidden");
-        }
-    </script>
-</head>
-<body>
-
-    <!-- TOP NAVIGATION -->
-    <nav class="top-nav">
-        <div class="nav-container">
-            <div style="display: flex; align-items: center; gap: 2rem;">
-                <a href="/" class="nav-brand">
-                    <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
-                    Bone Fracture Detection Using CNN
-                </a>
-                                                                                                                <div class="nav-links">
-                    <a href="/" class="active">Upload Scan</a>
-                    <a href="/patient">My Records</a>
-                    {% if session.role == 'doctor' %}
-                        <a href="/doctor">Doctor Review</a>
-                        <a href="/history">History</a>
-                    {% endif %}
-
-                    {% if session.role == 'patient' %}
-                        <a href="/hospitals">Facility Locator</a>
-                    {% endif %}
-                    <a href="/logout" style="color: #ef4444; border-left: 1px solid var(--border-color); padding-left: 1rem; margin-left: 0.5rem;">Logout</a>
+        <!-- SCAN UPLOAD -->
+        <div class="card">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                <div>
+                    <h2 class="panel-title">Initiate Diagnostic Scan</h2>
+                    <p style="color: var(--text-light); font-size: 0.875rem; margin-top: 0.2rem;">
+                        Upload a radiograph (X-ray) for automated fracture detection and severity analysis.
+                    </p>
                 </div>
+                <span class="badge badge-neutral">System Ready</span>
             </div>
-            
-            <div style="display: flex; align-items: center; gap: 1rem;">
-                <!--span style="font-size: 0.8rem; font-weight: 500; color: var(--text-light); border: 1px solid var(--border-color); padding: 0.2rem 0.6rem; border-radius: 9999px;">v2.0 Enterprise</span-->
-                <button class="theme-switch" onclick="toggleDarkMode()" title="Toggle Theme">
-                    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
-                </button>
-            </div>
-        </div>
-    </nav>
 
-    <!-- MAIN APP WRAPPER -->
-    <main class="app-layout">
-        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; align-items: start;">
-            
-            <!-- LEFT COLUMN: SCAN UPLOAD -->
-            <div class="card">
-                <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <h2 class="panel-title">Initiate Diagnostic Scan</h2>
-                        <p style="color: var(--text-light); font-size: 0.875rem; margin-top: 0.2rem;">Upload radiograph (X-ray) for automated fracture detection and severity analysis.</p>
-                    </div>
-                    <span class="badge badge-neutral">System Ready</span>
-                </div>
+            <form action="{{ url_for('predict') }}" method="post" enctype="multipart/form-data" onsubmit="return submitForm()">
 
-                <form action="/predict" method="post" enctype="multipart/form-data" onsubmit="submitForm()">
-                    
-                    <!-- UPLOAD ZONE -->
-                    <label id="uploadZone" class="upload-zone" style="display: block;">
-                        <input id="fileInput" type="file" name="file" accept="image/*" class="hidden" onchange="handleFileSelect(event)" required>
-                        <svg class="upload-icon mx-auto" style="width: 48px; height: 48px; margin: 0 auto; display:block;" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"></path></svg>
-                        <div class="upload-text">Browse files or drag and drop</div>
-                        <div class="upload-subtext">Supported formats: JPG, PNG, DICOM (Max 15MB)</div>
-                    </label>
+                <label id="uploadZone" class="upload-zone" style="display: block;">
+                    <input id="fileInput" type="file" name="file" accept="image/jpeg,image/png" class="hidden" onchange="handleFileSelect(event)" required>
+                    <svg class="upload-icon" style="width: 48px; height: 48px; margin: 0 auto 1rem; display:block;" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"></path></svg>
+                    <div class="upload-text">Browse files or drag and drop</div>
+                    <div class="upload-subtext">JPG or PNG · up to 15 MB</div>
+                </label>
+                <div id="uploadError" class="upload-error hidden" role="alert"></div>
 
-                    <!-- PREVIEW PANEL -->
-                    <div id="previewPanel" class="hidden" style="border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem; background: var(--bg-main);">
-                        <div style="display: flex; gap: 1.5rem;">
-                            <div class="scan-viewer" style="width: 140px; height: 140px; flex-shrink: 0;">
-                                <img id="previewImage" src="" alt="Scan Preview" style="width: 100%; height: 100%; object-fit: cover;">
+                <div id="previewPanel" class="hidden" style="border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem; background: var(--bg-main);">
+                    <div style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
+                        <div class="scan-viewer" style="width: 140px; height: 140px; flex-shrink: 0;">
+                            <img id="previewImage" src="" alt="Preview of the selected X-ray" style="width: 100%; height: 100%; object-fit: cover;">
+                        </div>
+                        <div style="flex: 1; min-width: 200px; display: flex; flex-direction: column; justify-content: center;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                <svg width="20" height="20" fill="none" stroke="var(--success)" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <span style="font-weight: 600; color: var(--text-dark);">File ready for processing</span>
                             </div>
-                            <div style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
-                                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                                    <svg width="20" height="20" fill="none" stroke="var(--success)" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                    <span style="font-weight: 600; color: var(--text-dark);">File ready for processing</span>
-                                </div>
-                                <div style="color: var(--text-light); font-size: 0.875rem; font-family: monospace; background: var(--bg-card); padding: 0.4rem 0.8rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); margin-bottom: 1rem; word-break: break-all;" id="fileName">
-                                    filename.jpg
-                                </div>
-                                <div style="display: flex; gap: 0.75rem;">
-                                    <button type="button" class="btn btn-secondary" onclick="removeFile()" style="padding: 0.4rem 1rem; font-size: 0.75rem;">Remove File</button>
-                                </div>
+                            <div id="fileName" style="color: var(--text-light); font-size: 0.875rem; font-family: monospace; background: var(--bg-card); padding: 0.4rem 0.8rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); margin-bottom: 1rem; word-break: break-all;">
+                                filename.jpg
+                            </div>
+                            <div>
+                                <button type="button" class="btn btn-secondary" onclick="removeFile()" style="padding: 0.4rem 1rem; font-size: 0.75rem;">Remove File</button>
                             </div>
                         </div>
                     </div>
-
-                    <!-- ACTION BAR -->
-                    <div style="margin-top: 1.5rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem; display: flex; justify-content: flex-end;">
-                        <button type="submit" id="btnSubmit" class="btn btn-primary">
-                            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
-                            Run Clinical Analysis
-                        </button>
-                        
-                        <button type="button" id="btnLoading" class="btn btn-primary hidden" disabled style="opacity: 0.8; cursor: not-allowed;">
-                            <div class="spinner" style="width: 16px; height: 16px; border-width: 2px;"></div>
-                            Processing Neural Network...
-                        </button>
-                    </div>
-
-                </form>
-            </div>
-
-            <!-- RIGHT COLUMN: INFO & TEAM -->
-            <div style="display: flex; flex-direction: column; gap: 1.5rem;">
-                
-                <div class="card" style="padding: 1.5rem;">
-                    <div class="panel-header" style="margin-bottom: 1rem; padding-bottom: 0.5rem;">
-                        <h3 class="panel-title" style="font-size: 1rem;">Project Abstract</h3>
-                    </div>
-                    <p style="font-size: 0.875rem; color: var(--text-dark); line-height: 1.6;">
-                        This academic project presents a Deep Learning application utilizing Convolutional Neural Networks (CNN) to automate bone fracture detection from X-ray images. The primary objective is to deliver rapid, high-precision fracture classification to assist orthopedic diagnostics and streamline patient care.
-                    </p>
                 </div>
-            </div>
-        </div>
-    </main>
 
-</body>
-</html>
+                <div style="margin-top: 1.5rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem; display: flex; justify-content: flex-end;">
+                    <button type="submit" id="btnSubmit" class="btn btn-primary">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        Run Clinical Analysis
+                    </button>
+                    <button type="button" id="btnLoading" class="btn btn-primary hidden" disabled style="opacity: 0.8; cursor: not-allowed;">
+                        <div class="spinner" style="width: 16px; height: 16px; border-width: 2px;"></div>
+                        Processing Neural Network...
+                    </button>
+                </div>
+            </form>
+        </div>
+</main>
+{% endblock %}

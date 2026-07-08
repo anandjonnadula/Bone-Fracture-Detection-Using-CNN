@@ -1,9 +1,15 @@
-tensorflow
-flask
-numpy
-pandas
-matplotlib
-pillow
-scikit-learn
-opencv-python
-reportlab
+# Pinned, known-good versions (Python 3.13, CPU TensorFlow).
+# NOTE (Windows): create the virtualenv at a SHORT path, e.g.
+#   python -m venv %USERPROFILE%\.venvs\bfd
+# Installing TensorFlow into a venv nested deep inside this project exceeds
+# the Windows 260-character path limit and produces a broken install.
+tensorflow==2.20.0
+flask==3.1.3
+numpy==2.5.1
+pillow==12.3.0
+opencv-python==5.0.0
+scikit-learn==1.9.0
+reportlab==5.0.0
+# Only needed to load the ORIGINAL legacy .h5 models for baseline comparison;
+# safe to remove once you use the retrained .keras models.
+tf_keras==2.20.1

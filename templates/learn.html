@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Learn About Fractures | Bone Fracture Detection{% endblock %}
+
+{% block content %}
+<main class="app-layout">
+    <div class="card">
+        <div class="panel-header">
+            <h1 class="panel-title" style="font-size: 1.5rem;">Understanding Bone Fractures</h1>
+            <p style="color: var(--text-light); font-size: 0.875rem;">
+                The twelve fracture categories this system can recognize, and what they mean.
+                Severity shown is the general clinical tendency — individual cases vary.
+            </p>
+        </div>
+
+        <div class="learn-grid">
+            <div class="learn-card">
+                <span class="badge badge-success" style="margin-bottom: 0.5rem;">Mild</span>
+                <h3>Hairline (Stress) Fracture</h3>
+                <p>A thin crack that does not go all the way through the bone, usually caused by repetitive stress or overuse. Often barely visible on X-rays and treated with rest and activity modification.</p>
+            </div>
+            <div class="learn-card">
+                <span class="badge badge-success" style="margin-bottom: 0.5rem;">Mild</span>
+                <h3>Greenstick Fracture</h3>
+                <p>The bone bends and cracks on one side without breaking completely — like snapping a green twig. Most common in children, whose bones are softer and more flexible.</p>
+            </div>
+            <div class="learn-card">
+                <span class="badge badge-warning" style="margin-bottom: 0.5rem;">Moderate</span>
+                <h3>Avulsion Fracture</h3>
+                <p>A small fragment of bone is pulled away by a tendon or ligament, typically during sudden forceful muscle contraction — common in athletes around the ankle, hip and pelvis.</p>
+            </div>
+            <div class="learn-card">
+                <span class="badge badge-warning" style="margin-bottom: 0.5rem;">Moderate</span>
+                <h3>Spiral Fracture</h3>
+                <p>A break that spirals around the bone shaft, caused by a twisting force — for example, a planted foot with a rotating body. Common in the tibia.</p>
+            </div>
+            <div class="learn-card">
+                <span class="badge badge-warning" style="margin-bottom: 0.5rem;">Moderate</span>
+                <h3>Oblique Fracture</h3>
+                <p>A clean break running diagonally across the bone shaft, usually from an angled impact. Stability depends on the angle and displacement of the fragments.</p>
+            </div>
+            <div class="learn-card">
+                <span class="badge badge-warning" style="margin-bottom: 0.5rem;">Moderate</span>
+                <h3>Compression (Crush) Fracture</h3>
+                <p>The bone is crushed or collapses on itself — most often in the vertebrae of the spine, frequently associated with osteoporosis or axial-load injuries.</p>
+            </div>
+            <div class="learn-card">
+                <span class="badge badge-warning" style="margin-bottom: 0.5rem;">Moderate</span>
+                <h3>Impacted Fracture</h3>
+                <p>The broken ends of the bone are driven into each other by the force of the injury, such as bracing a fall with an outstretched arm.</p>
+            </div>
+            <div class="learn-card">
+                <span class="badge badge-danger" style="margin-bottom: 0.5rem;">Severe</span>
+                <h3>Comminuted Fracture</h3>
+                <p>The bone shatters into three or more fragments, typically from high-energy trauma such as vehicle collisions. Usually requires surgical fixation.</p>
+            </div>
+            <div class="learn-card">
+                <span class="badge badge-danger" style="margin-bottom: 0.5rem;">Severe</span>
+                <h3>Fracture Dislocation</h3>
+                <p>A fracture occurring together with a dislocated joint — the bone breaks near a joint whose surfaces are also forced out of alignment. A surgical emergency in many cases.</p>
+            </div>
+            <div class="learn-card">
+                <span class="badge badge-danger" style="margin-bottom: 0.5rem;">Severe</span>
+                <h3>Intra-articular Fracture</h3>
+                <p>The fracture line extends into the joint surface itself. Requires precise anatomical reduction to avoid long-term arthritis and loss of joint function.</p>
+            </div>
+            <div class="learn-card">
+                <span class="badge badge-danger" style="margin-bottom: 0.5rem;">Severe</span>
+                <h3>Longitudinal Fracture</h3>
+                <p>A break that runs along the long axis of the bone. Often produced by axial compression forces and can be subtle on standard views.</p>
+            </div>
+            <div class="learn-card">
+                <span class="badge badge-danger" style="margin-bottom: 0.5rem;">Severe</span>
+                <h3>Pathological Fracture</h3>
+                <p>A break through bone weakened by underlying disease — osteoporosis, tumors, or infection — often after minimal trauma. The underlying condition must be treated too.</p>
+            </div>
+        </div>
+
+        <div style="margin-top: 2rem; border-left: 4px solid var(--warning); background: var(--warning-bg); padding: 1.25rem 1.5rem; border-radius: 0 var(--radius-md) var(--radius-md) 0;">
+            <h3 style="font-size: 0.875rem; font-weight: 700; color: var(--warning); text-transform: uppercase; margin-bottom: 0.5rem;">When to seek help</h3>
+            <p style="font-size: 0.9rem; color: var(--text-dark); line-height: 1.6; margin: 0;">
+                Seek immediate medical attention for any suspected fracture with visible deformity,
+                inability to bear weight, numbness, severe swelling, or an open wound near the injury.
+                This tool is an educational demonstration — it cannot rule out a fracture.
+            </p>
+        </div>
+    </div>
+</main>
+{% endblock %}

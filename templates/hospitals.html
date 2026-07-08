@@ -1,208 +1,145 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Facility Locator | Clinical Dashboard</title>
-    
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=12">
-    
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+{% extends "base.html" %}
+{% block title %}Facility Locator | Bone Fracture Detection{% endblock %}
 
-    <script>
-        function toggleDarkMode() {
-            document.body.classList.toggle("dark-mode");
-            localStorage.setItem("theme", document.body.classList.contains("dark-mode") ? "dark" : "light");
-        }
-        window.addEventListener('DOMContentLoaded', () => {
-            if(localStorage.getItem("theme") === "dark") document.body.classList.add("dark-mode");
-        });
-    </script>
-</head>
-<body>
-
-    <!-- TOP NAVIGATION -->
-    <nav class="top-nav">
-        <div class="nav-container">
-            <div style="display: flex; align-items: center; gap: 2rem;">
-                <a href="/" class="nav-brand">
-                    Bone Fracture Detection Using CNN
-                </a>
-                                                                                                                <div class="nav-links">
-                    <a href="/">Upload Scan</a>
-                    <a href="/patient">My Records</a>
-                    {% if session.role in ['doctor', 'admin'] %}
-                        <a href="/doctor">Doctor Review</a>
-                        <a href="/history">History</a>
-                    {% endif %}
-                    {% if session.role == 'admin' %}
-                        <a href="/admin">Analytics</a>
-                    {% endif %}
-
-                    {% if session.role in ['patient', 'admin'] %}
-                        <a href="/hospitals" class="active">Facility Locator</a>
-                    {% endif %}
-                    <a href="/logout" style="color: #ef4444; border-left: 1px solid var(--border-color); padding-left: 1rem; margin-left: 0.5rem;">Logout</a>
-                </div>
+{% block content %}
+<main class="app-layout">
+    <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; border-bottom: none; margin-bottom: 0; padding-bottom: 0;">
+            <div>
+                <h2 class="panel-title">Hospitals &amp; Medical Centers</h2>
+                <p style="color: var(--text-light); font-size: 0.875rem; margin-top: 0.2rem;">Find nearby hospitals and orthopedic clinics.</p>
             </div>
-            
-            <button class="theme-switch" onclick="toggleDarkMode()">
-                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
-            </button>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <input type="text" id="manualLocation" class="form-input" style="width: 240px;" placeholder="Search a city (e.g. Hyderabad)" onkeypress="if(event.key === 'Enter') searchManualLocation()">
+                <button onclick="searchManualLocation()" class="btn btn-primary" style="flex-shrink: 0; font-weight: 600;">Search</button>
+                <button onclick="useCurrentLocation()" class="btn btn-secondary" title="Use my location" aria-label="Use my current location" style="flex-shrink: 0;">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><circle cx="12" cy="11" r="3"></circle></svg>
+                </button>
+            </div>
         </div>
-    </nav>
+        <div id="statusAlert" class="hidden" style="margin-top: 1rem; padding: 0.75rem; border-radius: var(--radius-sm); font-size: 0.875rem; font-weight: 600;"></div>
+    </div>
 
-    <!-- MAIN APP WRAPPER -->
-    <main class="app-layout">
-        <div class="card medical-card" style="margin-bottom: 1.5rem;">
-            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: none; margin-bottom: 0px; padding-bottom: 0;">
-                <div>
-                    <h2 class="panel-title" style="color: #0c4a6e; font-weight: 700;">Hospitals & Medical Centers</h2>
-                    <p style="color: #64748b; font-size: 0.875rem; margin-top: 0.2rem; font-weight: 500;">Find nearby hospitals and medical clinics.</p>
-                </div>
-                
-                <div style="display: flex; gap: 0.5rem; width: 350px;">
-                    <input type="text" id="manualLocation" class="form-input" style="background: white;" placeholder="Search a city manually (e.g. Hyderabad)" onkeypress="if(event.key === 'Enter') searchManualLocation()">
-                    <button onclick="searchManualLocation()" class="btn btn-primary" style="flex-shrink: 0; font-weight: 600;">Search</button>
-                    <!--button onclick="useCurrentLocation()" class="btn btn-secondary" title="Use My Location" style="flex-shrink: 0; padding: 0.6rem; background: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd;"-->
-                        <!--svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"></path></svg-->
-                    </button>
-                </div>
-            </div>
-            
-            <div id="statusAlert" class="hidden" style="margin-top: 1rem; padding: 0.75rem; border-radius: var(--radius-sm); font-size: 0.875rem; font-weight: 600;"></div>
+    <div class="responsive-2col" style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; align-items: start;">
+        <div class="card" style="padding: 0; overflow: hidden; height: 600px;">
+            <iframe
+                id="gmap-iframe"
+                title="Map of nearby hospitals"
+                width="100%"
+                height="100%"
+                style="border:0;"
+                allowfullscreen=""
+                loading="lazy"
+                referrerpolicy="no-referrer-when-downgrade"
+                src="https://maps.google.com/maps?q=hospitals+in+Hyderabad&t=&z=12&ie=UTF8&iwloc=&output=embed">
+            </iframe>
         </div>
 
-        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; align-items: start;">
-            <!-- GOOGLE MAPS FULL WIDTH CONTAINER -->
-            <div class="card medical-card" style="padding: 0; overflow: hidden; height: 600px; display: flex; flex-direction: column;">
-                <iframe 
-                    id="gmap-iframe" 
-                    width="100%" 
-                    height="100%" 
-                    style="border:0;" 
-                    allowfullscreen="" 
-                    loading="lazy" 
-                    referrerpolicy="no-referrer-when-downgrade"
-                    src="https://maps.google.com/maps?q=hospitals+in+Hyderabad&t=&z=12&ie=UTF8&iwloc=&output=embed">
-                </iframe>
-            </div>
-
-            <!-- HOSPITAL LIST -->
-            <div class="card medical-card" style="height: 600px; display: flex; flex-direction: column; padding: 1.5rem;">
-                <h3 class="panel-title" style="font-size: 1.1rem; border-bottom: 2px solid #f1f5f9; padding-bottom: 0.75rem; margin-bottom: 1rem; display:flex; justify-content:space-between; color: #0c4a6e; font-weight: 700;">
-                    <span>Regional Directory</span>
-                    <span id="resultCount" class="badge" style="background: #e0f2fe; color: #0369a1; font-weight: 700;">0</span>
-                </h3>
-                
-                <div id="hospitalList" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 0.75rem; padding-right: 0.5rem;">
-                    <div style="text-align:center; padding: 2rem 1rem; color: #94a3b8; font-size: 0.875rem; font-weight: 500;">
-                        <div class="spinner" style="width:24px; height:24px; border-width:2.5px; margin: 0 auto 1.25rem;"></div>
-                        Synchronizing clinical directory...
-                    </div>
+        <div class="card" style="height: 600px; display: flex; flex-direction: column; padding: 1.5rem;">
+            <h3 class="panel-title" style="font-size: 1.1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem; margin-bottom: 1rem; display:flex; justify-content:space-between;">
+                <span>Regional Directory</span>
+                <span id="resultCount" class="badge badge-info" style="font-weight: 700;">0</span>
+            </h3>
+            <div id="hospitalList" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 0.75rem; padding-right: 0.5rem;">
+                <div style="text-align:center; padding: 2rem 1rem; color: var(--text-light); font-size: 0.875rem; font-weight: 500;">
+                    <div class="spinner" style="width:24px; height:24px; border-width:2.5px; margin: 0 auto 1.25rem;"></div>
+                    Synchronizing clinical directory...
                 </div>
             </div>
         </div>
-    </main>
+    </div>
+</main>
+{% endblock %}
 
-    <script>
-        function showStatus(msg, type) {
-            const alert = document.getElementById("statusAlert");
-            alert.className = ""; // Reset
-            alert.style.display = "block";
-            
-            if(type === 'error') {
-                alert.classList.add("badge-danger");
-                alert.innerHTML = `⚠️ ${msg}`;
-            } else if (type === 'success') {
-                alert.classList.add("badge-success");
-                alert.innerHTML = `✅ ${msg}`;
-            } else {
-                alert.classList.add("badge-neutral");
-                alert.innerHTML = `🔄 ${msg}`;
+{% block scripts %}
+<script>
+    function showStatus(msg, type) {
+        const alert = document.getElementById("statusAlert");
+        alert.className = "";
+        alert.style.display = "block";
+        if (type === 'error') { alert.classList.add("badge-danger"); alert.textContent = "⚠️ " + msg; }
+        else if (type === 'success') { alert.classList.add("badge-success"); alert.textContent = "✅ " + msg; }
+        else { alert.classList.add("badge-neutral"); alert.textContent = "🔄 " + msg; }
+    }
+
+    async function fetchDirectoryList(city) {
+        const list = document.getElementById("hospitalList");
+        const count = document.getElementById("resultCount");
+        try {
+            const url = `https://nominatim.openstreetmap.org/search?format=json&q=hospital+in+${encodeURIComponent(city)}&limit=25`;
+            const response = await fetch(url, { headers: { 'Accept-Language': 'en-US,en;q=0.9' } });
+            const data = await response.json();
+
+            list.innerHTML = "";
+            count.innerText = data.length;
+
+            if (data.length === 0) {
+                list.innerHTML = `<div style="text-align:center; padding: 2rem 1rem; color: var(--text-light); font-size: 0.875rem;">No directory records found. Please refer to the map pins.</div>`;
+                return;
             }
-        }
 
-        async function fetchDirectoryList(city) {
-            const list = document.getElementById("hospitalList");
-            const count = document.getElementById("resultCount");
-            
+            data.forEach(place => {
+                const div = document.createElement("div");
+                div.style.cssText = "padding:1rem;border:1px solid var(--border-color);border-radius:var(--radius-sm);background:var(--bg-main);display:flex;flex-direction:column;gap:0.4rem;";
+                const hospitalName = place.name || place.display_name.split(',')[0] || "Medical Center";
+                const address = place.display_name.split(',').slice(1, 3).join(', ');
+                div.innerHTML = `
+                    <div style="font-weight: 600; font-size: 0.85rem; color: var(--text-dark);"></div>
+                    <div style="font-size: 0.75rem; color: var(--text-light); line-height: 1.3;"></div>
+                    <div style="margin-top: 0.4rem;">
+                        <a href="https://www.google.com/maps?q=${parseFloat(place.lat)},${parseFloat(place.lon)}" target="_blank" rel="noopener" style="font-size: 0.75rem; color: var(--primary); text-decoration: none; font-weight: 500;">Open Directions →</a>
+                    </div>`;
+                div.children[0].textContent = hospitalName;
+                div.children[1].textContent = address;
+                list.appendChild(div);
+            });
+        } catch (err) {
+            console.error(err);
+            list.innerHTML = `<div style="text-align:center; padding: 2rem 1rem; color: var(--text-light); font-size: 0.875rem;">Directory service unavailable.</div>`;
+        }
+    }
+
+    function loadCity(city) {
+        showStatus(`Loading medical facilities in ${city}...`, "neutral");
+        const iframe = document.getElementById("gmap-iframe");
+        iframe.src = `https://maps.google.com/maps?q=hospitals+in+${encodeURIComponent(city)}&t=&z=12&ie=UTF8&iwloc=&output=embed`;
+        iframe.onload = () => showStatus(`Showing medical facilities for ${city}.`, "success");
+        fetchDirectoryList(city);
+    }
+
+    function searchManualLocation() {
+        const city = document.getElementById("manualLocation").value.trim();
+        if (!city) { showStatus("Please enter a city name to search.", "error"); return; }
+        loadCity(city);
+    }
+
+    function useCurrentLocation() {
+        if (!navigator.geolocation) {
+            showStatus("Geolocation is not supported by this browser — please search manually.", "error");
+            return;
+        }
+        showStatus("Locating you...", "neutral");
+        navigator.geolocation.getCurrentPosition(async (pos) => {
+            const { latitude, longitude } = pos.coords;
             try {
-                // Fetching broader 'hospital' to guarantee a dense, impressive list for the presentation UI, while map stays Ortho
-                const url = `https://nominatim.openstreetmap.org/search?format=json&q=hospital+in+${encodeURIComponent(city)}&limit=25`;
-                const response = await fetch(url, { headers: { 'Accept-Language': 'en-US,en;q=0.9' }});
-                const data = await response.json();
-                
-                list.innerHTML = "";
-                count.innerText = data.length;
-
-                if (data.length === 0) {
-                    list.innerHTML = `<div style="text-align:center; padding: 2rem 1rem; color: var(--text-light); font-size: 0.875rem;">No text directory records found. Please refer to the map pins.</div>`;
-                    return;
+                const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+                const j = await r.json();
+                const city = j.address.city || j.address.town || j.address.village || j.address.county || j.address.state;
+                if (city) {
+                    document.getElementById("manualLocation").value = city;
+                    loadCity(city);
+                } else {
+                    showStatus("Could not resolve your city — please search manually.", "error");
                 }
-
-                data.forEach(place => {
-                    const div = document.createElement("div");
-                    div.style.padding = "1rem";
-                    div.style.border = "1px solid var(--border-color)";
-                    div.style.borderRadius = "var(--radius-sm)";
-                    div.style.backgroundColor = "var(--bg-main)";
-                    div.style.display = "flex";
-                    div.style.flexDirection = "column";
-                    div.style.gap = "0.4rem";
-                    
-                    const hospitalName = place.name ? place.name : (place.display_name.split(',')[0] || "Medical Center");
-                    const address = place.display_name.split(',').slice(1, 3).join(', ');
-                    
-                    div.innerHTML = `
-                        <div style="font-weight: 600; font-size: 0.85rem; color: var(--text-dark);">${hospitalName}</div>
-                        <div style="font-size: 0.75rem; color: var(--text-light); line-height: 1.3;">${address}</div>
-                        <div style="margin-top: 0.4rem;">
-                            <a href="https://www.google.com/maps?q=${parseFloat(place.lat)},${parseFloat(place.lon)}" target="_blank" style="font-size: 0.75rem; color: var(--primary); text-decoration: none; font-weight: 500;">
-                                Open Directions →
-                            </a>
-                        </div>
-                    `;
-                    list.appendChild(div);
-                });
-
-            } catch (err) {
-                console.error(err);
-                list.innerHTML = `<div style="text-align:center; padding: 2rem 1rem; color: var(--text-light); font-size: 0.875rem;">Directory service unavailable.</div>`;
+            } catch (e) {
+                showStatus("Location lookup failed — please search manually.", "error");
             }
-        }
+        }, () => showStatus("Location permission denied — please search manually.", "error"), { timeout: 8000 });
+    }
 
-        function searchManualLocation() {
-            const city = document.getElementById("manualLocation").value.trim();
-            if(!city) {
-                showStatus("Please enter a city name to search.", "error"); return;
-            }
-            showStatus(`Loading Google Maps data for hospitals in ${city}...`, "neutral");
-            
-            // Map
-            const iframe = document.getElementById("gmap-iframe");
-            iframe.src = `https://maps.google.com/maps?q=hospitals+in+${encodeURIComponent(city)}&t=&z=12&ie=UTF8&iwloc=&output=embed`;
-            
-            iframe.onload = () => {
-                showStatus(`Successfully loaded Medical Facilities for ${city}.`, "success");
-            };
-
-            // Directory List
-            fetchDirectoryList(city);
-        }
-
-        function useCurrentLocation() {
-            showStatus("Current location pinpointing is optimized through manual city search. Please type your city.", "neutral");
-            document.getElementById("manualLocation").focus();
-        }
-
-        // Run default search on load for robust UX
-        window.addEventListener('DOMContentLoaded', () => {
-            document.getElementById("manualLocation").value = "Hyderabad";
-            searchManualLocation();
-        });
-    </script>
-</body>
-</html>
+    window.addEventListener('DOMContentLoaded', () => {
+        document.getElementById("manualLocation").value = "Hyderabad";
+        searchManualLocation();
+    });
+</script>
+{% endblock %}

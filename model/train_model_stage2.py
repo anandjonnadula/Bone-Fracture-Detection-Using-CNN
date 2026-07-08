@@ -1,92 +1,160 @@
-import tensorflow as tf
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
-import os
+"""Stage 2 trainer — 12-way fracture-type classification.
+
+Improvements over the original script:
+  * Fine-tuning now unfreezes only the TOP backbone layers and keeps every
+    BatchNormalization layer frozen. The old script set the whole MobileNetV2
+    trainable — retraining BN statistics on ~1.3k images with batch size 32
+    wrecks the pretrained features.
+  * Label smoothing (0.1) — strong regularizer for a 12-class problem on a
+    small dataset.
+  * Class weights for the mild imbalance (82-159 images per class).
+  * Proper validation split from the TRAIN set; the test set is only touched
+    once, for the final report (the old script validated on test).
+  * Small-dataset caching for fast epochs, real history + per-class test
+    report saved to stage2_meta.json.
+"""
+
 import json
-from PIL import ImageFile
-from cnn_model import build_transfer_learning_model
+import os
+from datetime import datetime, timezone
 
-# ✅ Fix truncated/corrupted image errors
-ImageFile.LOAD_TRUNCATED_IMAGES = True
+import numpy as np
+import tensorflow as tf
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 
-# Paths
+from cnn_model import build_stage2_model, unfreeze_top_layers
+from data_utils import (
+    build_augmenter,
+    class_weights_from_counts,
+    count_per_class,
+    load_test,
+    load_train_val,
+    merge_histories,
+    prepare,
+)
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-train_dir = os.path.join(BASE_DIR, "../dataset/stage2_MultiClassification/train")
-test_dir = os.path.join(BASE_DIR, "../dataset/stage2_MultiClassification/test")
+TRAIN_DIR = os.path.join(BASE_DIR, "..", "dataset", "stage2_MultiClassification", "train")
+TEST_DIR = os.path.join(BASE_DIR, "..", "dataset", "stage2_MultiClassification", "test")
+SAVE_DIR = os.path.join(BASE_DIR, "saved_model")
 
-# Data Generators - enhanced augmentation
-train_datagen = ImageDataGenerator(
-    rescale=1./255,
-    rotation_range=20,
-    width_shift_range=0.2,
-    height_shift_range=0.2,
-    shear_range=0.2,
-    zoom_range=0.2,
-    horizontal_flip=True,
-    fill_mode='nearest'
-)
+HEAD_EPOCHS = 20
+FINE_TUNE_EPOCHS = 15
 
-test_datagen = ImageDataGenerator(rescale=1./255)
+tf.keras.utils.set_random_seed(1337)
 
-train_data = train_datagen.flow_from_directory(
-    train_dir,
-    target_size=(224, 224),
-    batch_size=32,
-    class_mode='categorical',
-    shuffle=True
-)
 
-test_data = test_datagen.flow_from_directory(
-    test_dir,
-    target_size=(224, 224),
-    batch_size=32,
-    class_mode='categorical',
-    shuffle=False
-)
+def collect_probs_and_labels(model, ds):
+    y_true, y_prob = [], []
+    for batch_x, batch_y in ds:
+        y_prob.append(model.predict_on_batch(batch_x))
+        y_true.append(np.argmax(batch_y.numpy(), axis=1))
+    return np.concatenate(y_true), np.concatenate(y_prob, axis=0)
 
-# Print and save class indices
-print("Class Indices:", train_data.class_indices)
-with open(os.path.join(BASE_DIR, "class_indices.json"), "w") as f:
-    json.dump(train_data.class_indices, f)
 
-# Build Transfer Learning Model
-model = build_transfer_learning_model(num_classes=train_data.num_classes)
+def main():
+    counts = count_per_class(TRAIN_DIR)
+    print("Train counts:", counts)
 
-# Callbacks
-early_stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
-lr_reduce = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=3, min_lr=0.00001)
+    train_ds, val_ds, class_names = load_train_val(TRAIN_DIR, label_mode="categorical")
+    print("Class names (folder order):", class_names)
+    test_ds, _ = load_test(TEST_DIR, label_mode="categorical")
 
-# Train the Model
-model.fit(
-    train_data,
-    validation_data=test_data,
-    epochs=50,  # Increased epochs
-    callbacks=[early_stop, lr_reduce],
-    verbose=1
-)
+    augmenter = build_augmenter()
+    # Dataset is small (~1.3k images) — cache decoded images in memory.
+    train_prepped = prepare(train_ds, augmenter=augmenter, cache_in_memory=True)
+    val_prepped = prepare(val_ds, cache_in_memory=True)
+    test_prepped = prepare(test_ds)
 
-# Optional: Fine-tuning (unfreeze base model)
-print("Starting fine-tuning...")
-model.layers[0].trainable = True
-model.compile(
-    optimizer=tf.keras.optimizers.Adam(1e-5),  # Very low learning rate
-    loss='categorical_crossentropy',
-    metrics=['accuracy']
-)
+    class_weights = class_weights_from_counts([counts[name] for name in class_names])
+    print("Class weights:", class_weights)
 
-model.fit(
-    train_data,
-    validation_data=test_data,
-    epochs=30,
-    callbacks=[early_stop, lr_reduce],
-    verbose=1
-)
+    model, base = build_stage2_model(num_classes=len(class_names))
+    loss = tf.keras.losses.CategoricalCrossentropy(label_smoothing=0.1)
+    metrics = [
+        "accuracy",
+        tf.keras.metrics.TopKCategoricalAccuracy(k=3, name="top3_accuracy"),
+    ]
 
-# Ensure saved_model folder exists
-save_path = os.path.join(BASE_DIR, "saved_model")
-if not os.path.exists(save_path):
-    os.makedirs(save_path)
+    # ---- Phase 1: train the classification head on frozen features ----
+    model.compile(optimizer=tf.keras.optimizers.Adam(1e-3), loss=loss, metrics=metrics)
+    print("\n=== Phase 1: head training (backbone frozen) ===")
+    h1 = model.fit(
+        train_prepped,
+        validation_data=val_prepped,
+        epochs=HEAD_EPOCHS,
+        class_weight=class_weights,
+        callbacks=[
+            EarlyStopping(monitor="val_loss", patience=4, restore_best_weights=True),
+            ReduceLROnPlateau(monitor="val_loss", factor=0.5, patience=2, min_lr=1e-6),
+        ],
+        verbose=2,
+    )
 
-# Save Stage 2 Model
-model.save(os.path.join(save_path, "stage2_model.h5"))
-print("✅ Stage 2 Model Saved Successfully!")
+    # ---- Phase 2: fine-tune top of the backbone at a low LR ----
+    unfreeze_top_layers(base, n_layers=40)
+    model.compile(optimizer=tf.keras.optimizers.Adam(1e-5), loss=loss, metrics=metrics)
+    print("\n=== Phase 2: fine-tuning top backbone layers (BatchNorm frozen) ===")
+    h2 = model.fit(
+        train_prepped,
+        validation_data=val_prepped,
+        epochs=FINE_TUNE_EPOCHS,
+        class_weight=class_weights,
+        callbacks=[
+            EarlyStopping(monitor="val_loss", patience=4, restore_best_weights=True),
+            ReduceLROnPlateau(monitor="val_loss", factor=0.5, patience=2, min_lr=1e-7),
+        ],
+        verbose=2,
+    )
+
+    # ---- Final evaluation on the held-out test set ----
+    from sklearn.metrics import classification_report, confusion_matrix
+
+    print("\n=== Final evaluation (held-out test set) ===")
+    y_true, y_prob = collect_probs_and_labels(model, test_prepped)
+    y_pred = np.argmax(y_prob, axis=1)
+    top1 = float((y_pred == y_true).mean())
+    top3 = float(
+        np.mean([t in row for t, row in zip(y_true, np.argsort(y_prob, axis=1)[:, -3:])])
+    )
+    report = classification_report(
+        y_true, y_pred, target_names=class_names, output_dict=True, zero_division=0
+    )
+    print(classification_report(y_true, y_pred, target_names=class_names, zero_division=0))
+    print(f"Top-1 accuracy: {top1:.4f}   Top-3 accuracy: {top3:.4f}")
+
+    # ---- Save ----
+    os.makedirs(SAVE_DIR, exist_ok=True)
+    model_path = os.path.join(SAVE_DIR, "stage2_model.keras")
+    model.save(model_path)
+
+    # Keep class_indices.json for backward compatibility with the app.
+    with open(os.path.join(BASE_DIR, "class_indices.json"), "w") as f:
+        json.dump({name: i for i, name in enumerate(class_names)}, f)
+
+    meta = {
+        "trained_at": datetime.now(timezone.utc).isoformat(),
+        "backbone": "MobileNetV2 (ImageNet)",
+        "input_size": 224,
+        "output_semantics": "softmax over fracture types; raw 0-255 RGB input",
+        "class_names": class_names,
+        "train_counts": counts,
+        "class_weights": {str(k): v for k, v in class_weights.items()},
+        "label_smoothing": 0.1,
+        "history": merge_histories(h1, h2),
+        "test_metrics": {
+            "top1_accuracy": top1,
+            "top3_accuracy": top3,
+            "per_class": report,
+            "confusion_matrix": confusion_matrix(y_true, y_pred).tolist(),
+        },
+    }
+    with open(os.path.join(SAVE_DIR, "stage2_meta.json"), "w") as f:
+        json.dump(meta, f, indent=2)
+
+    print(f"\n[OK] Stage 2 model saved to {model_path}")
+    print(f"[OK] Metadata + history saved to stage2_meta.json")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,22 @@
+{
+  "model": "stage1_model.h5",
+  "legacy": true,
+  "threshold": 0.5,
+  "n_test": 594,
+  "accuracy": 0.9393939393939394,
+  "balanced_accuracy": 0.9371509019320575,
+  "precision_fracture": 0.9315476190476191,
+  "recall_fracture": 0.9601226993865031,
+  "f1_fracture": 0.945619335347432,
+  "roc_auc": 0.9881421115282485,
+  "confusion_matrix_rows_true_no-frac_frac": [
+    [
+      245,
+      23
+    ],
+    [
+      13,
+      313
+    ]
+  ]
+}
