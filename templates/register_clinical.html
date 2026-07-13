@@ -4,12 +4,13 @@
 {% block content %}
 <div class="auth-page-bg" style="flex: 1;">
     <div style="text-align: center; margin-bottom: 2rem;">
-        <h1 style="color: #0c4a6e; font-size: 1.875rem; font-weight: 800; letter-spacing: -0.025em;">Clinical Staff Enrollment</h1>
+        <h1 style="color: #0f766e; font-size: 1.875rem; font-weight: 800; letter-spacing: -0.025em;">Clinical Staff Enrollment</h1>
         <p style="color: #64748b; font-weight: 500; font-size: 0.95rem;">Restricted registration — requires an authorization key</p>
     </div>
 
     <div class="card medical-card" style="width: 100%; max-width: 400px; padding: 2.5rem;">
         <form method="POST" action="{{ url_for('register_clinical') }}" style="display: flex; flex-direction: column; gap: 1.25rem;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
                 <label class="form-label" for="username">Username</label>
                 <input id="username" type="text" name="username" class="form-input" required minlength="3" autocomplete="username" placeholder="Choose a username">

@@ -20,21 +20,21 @@
       }
     },
     "retrained_keras": {
-      "threshold": 0.32000000000000006,
+      "threshold": 0.36000000000000004,
       "full_test": {
         "n": 594,
-        "accuracy": 0.8872,
-        "balanced_accuracy": 0.8757,
-        "recall_fracture": 0.9939,
-        "f1_fracture": 0.9063,
-        "roc_auc": 0.9776
+        "accuracy": 0.9327,
+        "balanced_accuracy": 0.9287,
+        "recall_fracture": 0.9693,
+        "f1_fracture": 0.9405,
+        "roc_auc": 0.988
       },
       "clean_test": {
         "n": 317,
-        "accuracy": 0.9937,
-        "balanced_accuracy": 0.9937,
-        "recall_fracture": 0.9937,
-        "f1_fracture": 0.9968,
+        "accuracy": 0.9685,
+        "balanced_accuracy": 0.9685,
+        "recall_fracture": 0.9685,
+        "f1_fracture": 0.984,
         "roc_auc": null
       }
     }
@@ -57,15 +57,15 @@
     "retrained_keras": {
       "full_test": {
         "n": 355,
-        "top1_accuracy": 0.3746,
-        "top3_accuracy": 0.6507,
-        "macro_f1": 0.3577
+        "top1_accuracy": 0.3099,
+        "top3_accuracy": 0.5887,
+        "macro_f1": 0.2978
       },
       "clean_test": {
         "n": 335,
-        "top1_accuracy": 0.3761,
-        "top3_accuracy": 0.6448,
-        "macro_f1": 0.3568
+        "top1_accuracy": 0.3164,
+        "top3_accuracy": 0.591,
+        "macro_f1": 0.3001
       }
     }
   }

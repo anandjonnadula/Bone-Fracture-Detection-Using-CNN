@@ -10,9 +10,9 @@
                 <p style="color: var(--text-light); font-size: 0.875rem; margin-top: 0.2rem;">Find nearby hospitals and orthopedic clinics.</p>
             </div>
             <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                <input type="text" id="manualLocation" class="form-input" style="width: 240px;" placeholder="Search a city (e.g. Hyderabad)" onkeypress="if(event.key === 'Enter') searchManualLocation()">
-                <button onclick="searchManualLocation()" class="btn btn-primary" style="flex-shrink: 0; font-weight: 600;">Search</button>
-                <button onclick="useCurrentLocation()" class="btn btn-secondary" title="Use my location" aria-label="Use my current location" style="flex-shrink: 0;">
+                <input type="text" id="manualLocation" class="form-input" style="width: 240px;" placeholder="Search a city (e.g. Tenali)">
+                <button id="btnSearchCity" class="btn btn-primary" style="flex-shrink: 0; font-weight: 600;">Search</button>
+                <button id="btnUseLocation" class="btn btn-secondary" title="Use my location" aria-label="Use my current location" style="flex-shrink: 0;">
                     <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><circle cx="12" cy="11" r="3"></circle></svg>
                 </button>
             </div>
@@ -23,15 +23,14 @@
     <div class="responsive-2col" style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; align-items: start;">
         <div class="card" style="padding: 0; overflow: hidden; height: 600px;">
             <iframe
-                id="gmap-iframe"
-                title="Map of nearby hospitals"
+                id="mapFrame"
+                title="Map of the selected area"
                 width="100%"
                 height="100%"
                 style="border:0;"
-                allowfullscreen=""
                 loading="lazy"
-                referrerpolicy="no-referrer-when-downgrade"
-                src="https://maps.google.com/maps?q=hospitals+in+Hyderabad&t=&z=12&ie=UTF8&iwloc=&output=embed">
+                referrerpolicy="no-referrer"
+                src="https://www.openstreetmap.org/export/embed.html?bbox=80.6370,16.2288,80.6558,16.2468&layer=mapnik&marker=16.2378,80.6464">
             </iframe>
         </div>
 
@@ -52,7 +51,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
     function showStatus(msg, type) {
         const alert = document.getElementById("statusAlert");
         alert.className = "";
@@ -87,7 +86,7 @@
                     <div style="font-weight: 600; font-size: 0.85rem; color: var(--text-dark);"></div>
                     <div style="font-size: 0.75rem; color: var(--text-light); line-height: 1.3;"></div>
                     <div style="margin-top: 0.4rem;">
-                        <a href="https://www.google.com/maps?q=${parseFloat(place.lat)},${parseFloat(place.lon)}" target="_blank" rel="noopener" style="font-size: 0.75rem; color: var(--primary); text-decoration: none; font-weight: 500;">Open Directions →</a>
+                        <a href="https://www.openstreetmap.org/?mlat=${parseFloat(place.lat)}&mlon=${parseFloat(place.lon)}#map=17/${parseFloat(place.lat)}/${parseFloat(place.lon)}" target="_blank" rel="noopener" style="font-size: 0.75rem; color: var(--primary); text-decoration: none; font-weight: 500;">View on map →</a>
                     </div>`;
                 div.children[0].textContent = hospitalName;
                 div.children[1].textContent = address;
@@ -99,18 +98,47 @@
         }
     }
 
-    function loadCity(city) {
+    // Tight bounding box (approx square) of `radiusKm` around a lat/lon.
+    function bboxAround(lat, lon, radiusKm) {
+        const dLat = radiusKm / 111;                                   // ~111 km per degree latitude
+        const dLon = radiusKm / (111 * Math.cos(lat * Math.PI / 180)); // longitude shrinks with latitude
+        return { s: lat - dLat, n: lat + dLat, w: lon - dLon, e: lon + dLon };
+    }
+
+    async function loadCity(city, radiusKm) {
         showStatus(`Loading medical facilities in ${city}...`, "neutral");
-        const iframe = document.getElementById("gmap-iframe");
-        iframe.src = `https://maps.google.com/maps?q=hospitals+in+${encodeURIComponent(city)}&t=&z=12&ie=UTF8&iwloc=&output=embed`;
-        iframe.onload = () => showStatus(`Showing medical facilities for ${city}.`, "success");
+        try {
+            const resp = await fetch(
+                `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(city)}`,
+                { headers: { 'Accept-Language': 'en-US,en;q=0.9' } });
+            const g = (await resp.json())[0];
+            if (g) {
+                let s, n, w, e;
+                if (radiusKm) {
+                    // Tight view centred on the place (the 1 km default for Tenali).
+                    ({ s, n, w, e } = bboxAround(parseFloat(g.lat), parseFloat(g.lon), radiusKm));
+                } else {
+                    // Nominatim boundingbox = [south, north, west, east] — the full extent.
+                    [s, n, w, e] = g.boundingbox;
+                }
+                // OSM embed bbox order = minlon,minlat,maxlon,maxlat = west,south,east,north
+                document.getElementById("mapFrame").src =
+                    `https://www.openstreetmap.org/export/embed.html?bbox=${w},${s},${e},${n}` +
+                    `&layer=mapnik&marker=${g.lat},${g.lon}`;
+                showStatus(`Showing medical facilities near ${city}.`, "success");
+            } else {
+                showStatus(`Couldn't place "${city}" on the map — showing the directory below.`, "error");
+            }
+        } catch (err) {
+            showStatus("Map service is unavailable right now — showing the directory below.", "error");
+        }
         fetchDirectoryList(city);
     }
 
     function searchManualLocation() {
         const city = document.getElementById("manualLocation").value.trim();
         if (!city) { showStatus("Please enter a city name to search.", "error"); return; }
-        loadCity(city);
+        loadCity(city, 2);   // searched places: ~2 km radius, never the full city extent
     }
 
     function useCurrentLocation() {
@@ -127,7 +155,7 @@
                 const city = j.address.city || j.address.town || j.address.village || j.address.county || j.address.state;
                 if (city) {
                     document.getElementById("manualLocation").value = city;
-                    loadCity(city);
+                    loadCity(city, 2);   // "my location" behaves like a search: ~2 km radius
                 } else {
                     showStatus("Could not resolve your city — please search manually.", "error");
                 }
@@ -138,8 +166,14 @@
     }
 
     window.addEventListener('DOMContentLoaded', () => {
-        document.getElementById("manualLocation").value = "Hyderabad";
-        searchManualLocation();
+        document.getElementById("btnSearchCity").addEventListener("click", searchManualLocation);
+        document.getElementById("btnUseLocation").addEventListener("click", useCurrentLocation);
+        const cityInput = document.getElementById("manualLocation");
+        cityInput.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") searchManualLocation();
+        });
+        cityInput.value = "Tenali";
+        loadCity("Tenali", 1);   // default view: Tenali at a ~1 km radius
     });
 </script>
 {% endblock %}

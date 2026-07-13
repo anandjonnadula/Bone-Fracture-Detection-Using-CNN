@@ -2,7 +2,7 @@
 {% block title %}Analytics | Bone Fracture Detection{% endblock %}
 
 {% block head_extra %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}"></script>
 {% endblock %}
 
 {% block content %}
@@ -29,7 +29,15 @@
                 <div class="stat-label">Clear Scans</div>
             </div>
             <div class="stat-tile">
-                <div class="stat-value" style="color: #0369a1;">{{ pending }}</div>
+                <div class="stat-value" style="color: var(--warning);">{{ uncertain }}</div>
+                <div class="stat-label">Uncertain (auto-flagged)</div>
+            </div>
+            <div class="stat-tile">
+                <div class="stat-value" style="color: var(--text-light);">{{ rejected }}</div>
+                <div class="stat-label">Rejected (not X-ray)</div>
+            </div>
+            <div class="stat-tile">
+                <div class="stat-value" style="color: var(--primary);">{{ pending }}</div>
                 <div class="stat-label">Pending Reviews</div>
             </div>
             <div class="stat-tile">
@@ -97,7 +105,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
     const typeData = {{ type_rows | map(attribute='ftype') | list | tojson }};
     const typeCounts = {{ type_rows | map(attribute='c') | list | tojson }};
     const dayLabels = {{ by_day | map(attribute='day') | list | tojson }};
@@ -124,7 +132,7 @@
         if (typeEl && typeData.length) {
             charts.push(new Chart(typeEl, {
                 type: "bar",
-                data: { labels: typeData, datasets: [{ data: typeCounts, backgroundColor: "rgba(59,130,246,0.6)", borderColor: "#3b82f6", borderWidth: 1 }] },
+                data: { labels: typeData, datasets: [{ data: typeCounts, backgroundColor: "rgba(13,148,136,0.55)", borderColor: "#0d9488", borderWidth: 1 }] },
                 options: common
             }));
         }

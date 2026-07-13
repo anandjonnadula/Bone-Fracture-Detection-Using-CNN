@@ -19,7 +19,6 @@ import os
 
 import numpy as np
 import tensorflow as tf
-
 from data_utils import load_test
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -132,7 +131,7 @@ def evaluate_stage2(model_path, tag):
 
     top1 = float((y_pred == y_true).mean())
     top3_idx = np.argsort(probs, axis=1)[:, -3:]
-    top3 = float(np.mean([t in row for t, row in zip(y_true, top3_idx)]))
+    top3 = float(np.mean([t in row for t, row in zip(y_true, top3_idx, strict=False)]))
     report = classification_report(
         y_true, y_pred, target_names=class_names, output_dict=True, zero_division=0
     )

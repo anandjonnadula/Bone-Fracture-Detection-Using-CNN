@@ -14,14 +14,13 @@ Improvements over the original script:
     report saved to stage2_meta.json.
 """
 
+import argparse
 import json
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
-
 from cnn_model import build_stage2_model, unfreeze_top_layers
 from data_utils import (
     build_augmenter,
@@ -32,6 +31,7 @@ from data_utils import (
     merge_histories,
     prepare,
 )
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TRAIN_DIR = os.path.join(BASE_DIR, "..", "dataset", "stage2_MultiClassification", "train")
@@ -52,7 +52,19 @@ def collect_probs_and_labels(model, ds):
     return np.concatenate(y_true), np.concatenate(y_prob, axis=0)
 
 
+def parse_args():
+    ap = argparse.ArgumentParser(description="Stage 2 trainer")
+    ap.add_argument(
+        "--init-weights", default=None,
+        help="Optional weights file to initialize from (e.g. "
+             "saved_model/backbone_radiograph.weights.h5 from pretrain_backbone.py); "
+             "the classification head is skipped via skip_mismatch.",
+    )
+    return ap.parse_args()
+
+
 def main():
+    args = parse_args()
     counts = count_per_class(TRAIN_DIR)
     print("Train counts:", counts)
 
@@ -70,6 +82,9 @@ def main():
     print("Class weights:", class_weights)
 
     model, base = build_stage2_model(num_classes=len(class_names))
+    if args.init_weights:
+        model.load_weights(args.init_weights, skip_mismatch=True)
+        print(f"Initialized weights from {args.init_weights} (head skipped)")
     loss = tf.keras.losses.CategoricalCrossentropy(label_smoothing=0.1)
     metrics = [
         "accuracy",
@@ -115,7 +130,7 @@ def main():
     y_pred = np.argmax(y_prob, axis=1)
     top1 = float((y_pred == y_true).mean())
     top3 = float(
-        np.mean([t in row for t, row in zip(y_true, np.argsort(y_prob, axis=1)[:, -3:])])
+        np.mean([t in row for t, row in zip(y_true, np.argsort(y_prob, axis=1)[:, -3:], strict=False)])
     )
     report = classification_report(
         y_true, y_pred, target_names=class_names, output_dict=True, zero_division=0
@@ -133,8 +148,10 @@ def main():
         json.dump({name: i for i, name in enumerate(class_names)}, f)
 
     meta = {
-        "trained_at": datetime.now(timezone.utc).isoformat(),
-        "backbone": "MobileNetV2 (ImageNet)",
+        "trained_at": datetime.now(UTC).isoformat(),
+        "backbone": ("MobileNetV2 (radiograph-pretrained)" if args.init_weights
+                     else "MobileNetV2 (ImageNet)"),
+        "init_weights": args.init_weights,
         "input_size": 224,
         "output_semantics": "softmax over fracture types; raw 0-255 RGB input",
         "class_names": class_names,
@@ -153,7 +170,7 @@ def main():
         json.dump(meta, f, indent=2)
 
     print(f"\n[OK] Stage 2 model saved to {model_path}")
-    print(f"[OK] Metadata + history saved to stage2_meta.json")
+    print("[OK] Metadata + history saved to stage2_meta.json")
 
 
 if __name__ == "__main__":

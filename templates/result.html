@@ -1,87 +1,167 @@
 {% extends "base.html" %}
+{% set theme_default = 'dark' %}
 {% block title %}Diagnostic Results | Bone Fracture Detection{% endblock %}
 
 {% block head_extra %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}"></script>
 {% endblock %}
+
+{% set fracture_detected = scan['verdict'] == 'fracture' or (not scan['verdict'] and scan['result'] and scan['result'].startswith('Fracture')) %}
+{% set tier_icons = {'fracture_high': '▲', 'fracture_likely': '▲', 'uncertain': '⚠', 'clear_moderate': '✓', 'clear_high': '✓', 'rejected': '∅'} %}
 
 {% block content %}
 <main class="app-layout">
     <div class="card animate-fade-in">
         <div class="panel-header" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap;">
             <div>
-                <span class="badge badge-success" style="margin-bottom: 0.5rem;">Scan Processed — Record #{{ record_id }}</span>
+                <span class="badge badge-neutral" style="margin-bottom: 0.5rem;">Record #{{ scan['id'] }} · {{ scan['date'] }}</span>
                 <h1 class="panel-title" style="font-size: 1.5rem; margin-top: 0;">Automated Diagnostic Report</h1>
+                {% if scan['body_part'] or scan['view_position'] %}
+                <p style="color: var(--text-light); font-size: 0.8rem; margin-top: 0.25rem;">
+                    {{ scan['body_part'] or 'Unknown body part' }}{% if scan['view_position'] %} · view {{ scan['view_position'] }}{% endif %}
+                    {% if scan['source_format'] == 'dicom' %} · from DICOM{% endif %}
+                </p>
+                {% endif %}
             </div>
-            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
-                {% if pdf_report %}
-                <a href="{{ url_for('static', filename='uploads/' + pdf_report) }}" target="_blank" class="btn btn-primary" style="padding: 0.5rem 1rem;">
+            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+                <button class="lights-toggle" data-action="toggle-lights" type="button">☀ Lights</button>
+                {% if scan['pdf_path'] %}
+                <a href="{{ url_for('media', filename=scan['pdf_path']) }}" target="_blank" class="btn btn-primary" style="padding: 0.5rem 1rem;">
                     <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                     Download PDF Report
                 </a>
                 {% endif %}
-                <a href="{{ url_for('patient_dashboard') }}" class="btn btn-secondary" style="padding: 0.5rem 1rem;">View My Records</a>
+                <a href="{{ url_for('patient_dashboard') }}" class="btn btn-secondary" style="padding: 0.5rem 1rem;">My Records</a>
             </div>
         </div>
 
+        {% if scan['verdict'] == 'rejected' %}
+        <!-- OOD REJECTION -->
+        <div style="background: var(--bg-main); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 2rem; text-align: center;">
+            <span class="tier-badge tier-rejected" style="font-size: 1rem;">
+                <span class="tier-icon" aria-hidden="true">∅</span> {{ tier_text_for('rejected') }}
+            </span>
+            <p style="margin-top: 1rem; color: var(--text-dark); font-size: 0.95rem;">
+                This doesn't appear to be a bone X-ray (radiograph).
+                Please upload a plain X-ray image in JPG/PNG format.
+            </p>
+            <a href="{{ url_for('index') }}" class="btn btn-primary" style="margin-top: 1.25rem;">Upload a Different Image</a>
+        </div>
+        {% else %}
+
         <!-- RESULT BANNER -->
         <div style="background: var(--bg-main); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem; margin-bottom: 2rem;">
-            <div class="responsive-3col" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 1rem;">
+            {% if scan['tier'] %}
+            <div style="margin-bottom: 1rem;">
+                <span class="tier-badge tier-{{ scan['tier'] }}" style="font-size: 0.95rem;">
+                    <span class="tier-icon" aria-hidden="true">{{ tier_icons.get(scan['tier'], '') }}</span>
+                    {{ tier_text_for(scan['tier']) }}
+                </span>
+            </div>
+            {% endif %}
+            <div class="responsive-3col" style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 1rem;">
                 <div>
                     <div style="font-size: 0.75rem; color: var(--text-light); text-transform: uppercase; font-weight: 600; margin-bottom: 0.25rem;">Primary Finding</div>
-                    <div style="font-size: 1.4rem; font-weight: 700; color: {% if fracture_detected %}var(--danger){% else %}var(--success){% endif %};">
-                        {{ result }}
+                    <div style="font-size: 1.4rem; font-weight: 700; color: {% if fracture_detected %}var(--danger){% elif scan['verdict'] == 'uncertain' %}var(--warning){% else %}var(--success){% endif %};">
+                        {{ scan['result'] }}
                     </div>
                 </div>
                 <div>
                     <div style="font-size: 0.75rem; color: var(--text-light); text-transform: uppercase; font-weight: 600; margin-bottom: 0.25rem;">
                         {% if fracture_detected %}Type Confidence{% else %}Confidence{% endif %}
                     </div>
-                    <div style="font-size: 1.4rem; font-weight: 700; color: var(--text-dark);">{{ confidence }}%</div>
-                </div>
-                <div>
-                    <div style="font-size: 0.75rem; color: var(--text-light); text-transform: uppercase; font-weight: 600; margin-bottom: 0.25rem;" title="Stage-1 detector output; decision threshold {{ threshold }}%">Fracture Probability</div>
-                    <div style="font-size: 1.4rem; font-weight: 700; color: var(--text-dark);">{{ fracture_prob }}%</div>
+                    <div style="font-size: 1.4rem; font-weight: 700; color: var(--text-dark);">{{ (scan['confidence'] or 0) | round(2) }}%</div>
                 </div>
                 <div>
                     <div style="font-size: 0.75rem; color: var(--text-light); text-transform: uppercase; font-weight: 600; margin-bottom: 0.25rem;">Severity</div>
-                    {% if severity and severity != 'None' %}
-                        <span class="badge {{ 'badge-success' if severity == 'Mild' else 'badge-warning' if severity == 'Moderate' else 'badge-danger' }}" style="font-size: 0.875rem;">{{ severity }}</span>
+                    {% if scan['severity'] and scan['severity'] not in ('None', 'Unknown') %}
+                        <span class="badge {{ 'badge-success' if scan['severity'] == 'Mild' else 'badge-warning' if scan['severity'] == 'Moderate' else 'badge-danger' }}" style="font-size: 0.875rem;">{{ scan['severity'] }}</span>
                     {% else %}
-                        <div style="font-size: 1rem; color: var(--text-light); font-weight: 500;">N/A</div>
+                        <div style="font-size: 1rem; color: var(--text-light); font-weight: 500;">{{ 'Unclear' if scan['severity'] == 'Unknown' else 'N/A' }}</div>
                     {% endif %}
                 </div>
             </div>
+
+            <!-- Calibrated probability bar with threshold marker + abstention band -->
+            {% if scan['fracture_prob'] is not none %}
+            <div class="prob-band">
+                <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-light); font-weight: 600; margin-bottom: 0.35rem;">
+                    <span>Calibrated fracture probability</span>
+                    <span style="color: var(--text-dark);">{{ scan['fracture_prob'] | round(2) }}%</span>
+                </div>
+                <div class="prob-band-track" role="img"
+                     aria-label="Calibrated fracture probability {{ scan['fracture_prob'] | round(1) }} percent; decision threshold {{ threshold }} percent; abstention band {{ abstain_low }} to {{ abstain_high }} percent">
+                    <div class="prob-band-abstain" style="left: {{ abstain_low }}%; width: {{ abstain_high - abstain_low }}%;"></div>
+                    <div class="prob-band-fill" style="width: {{ scan['fracture_prob'] }}%;"></div>
+                    <div class="prob-band-thr" style="left: {{ threshold }}%;"></div>
+                </div>
+                <div class="prob-band-legend">
+                    <span><span class="swatch" style="background: linear-gradient(90deg, var(--primary), color-mix(in srgb, var(--primary) 55%, #38bdf8));"></span>this scan</span>
+                    <span><span class="swatch" style="background: var(--text-dark);"></span>decision threshold ({{ threshold }}%)</span>
+                    <span><span class="swatch" style="background: rgba(217,119,6,0.35);"></span>abstention band ({{ abstain_low }}–{{ abstain_high }}%) — flagged for specialist review</span>
+                </div>
+            </div>
+            {% endif %}
         </div>
 
-        <div class="responsive-2col" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
-            <!-- IMAGES -->
+        <div class="responsive-2col" style="display: grid; grid-template-columns: 1.15fr 1fr; gap: 2rem;">
+            <!-- INTERACTIVE VIEWER -->
             <div>
-                <h3 style="font-size: 0.875rem; font-weight: 600; color: var(--text-light); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em;">Medical Imaging Analysis</h3>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                    <div class="scan-viewer" style="box-shadow: var(--shadow-md);">
-                        <div class="scan-label">Input Radiograph</div>
-                        <img src="/{{ image_path }}" alt="Original X-ray">
+                <h3 style="font-size: 0.875rem; font-weight: 600; color: var(--text-light); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                    Medical Imaging Analysis
+                    {% if detections %}<span class="beta-chip">Localization beta — wrist-validated</span>{% endif %}
+                </h3>
+                <div class="viewer-block" data-viewer id="resultViewer"
+                     {% if scan['cam_path'] %}data-cam="{{ url_for('media', filename=scan['cam_path']) }}"{% endif %}
+                     {% if detections %}data-detections="{{ detections | tojson | forceescape }}"{% endif %}
+                     {% if annotations %}data-annotations="{{ annotations | tojson | forceescape }}"{% endif %}>
+                    <div class="xray-viewer">
+                        <div class="layers">
+                            <img class="base" src="{{ url_for('media', filename=scan['image_path']) }}" alt="Original X-ray">
+                        </div>
                     </div>
-                    {% if gradcam_path %}
-                    <div class="scan-viewer" style="box-shadow: var(--shadow-md); border-color: var(--primary);">
-                        <div class="scan-label" style="background: var(--primary);">Model Attention (Grad-CAM)</div>
-                        <img src="/{{ gradcam_path }}" alt="Grad-CAM heatmap of model attention">
+                    <div class="viewer-controls">
+                        {% if scan['cam_path'] %}
+                        <label for="camOpacity">Heatmap
+                            <input type="range" id="camOpacity" min="0" max="100" value="70" data-cam-opacity
+                                   aria-label="Grad-CAM heatmap opacity">
+                            <span data-cam-value>70%</span>
+                        </label>
+                        {% endif %}
+                        {% if detections %}
+                        <label><input type="checkbox" checked data-layer-toggle="boxes"> Regions</label>
+                        {% endif %}
+                        {% if annotations %}
+                        <label><input type="checkbox" checked data-layer-toggle="notes"> Doctor's annotations</label>
+                        {% endif %}
+                        <button type="button" class="viewer-reset">Reset view</button>
                     </div>
-                    {% endif %}
                 </div>
-                {% if gradcam_path %}
-                <p style="font-size: 0.75rem; color: var(--text-light); margin-top: 0.6rem; line-height: 1.5;">
-                    The heatmap shows the regions that most influenced the network's decision.
-                    It indicates model attention, not a clinically verified fracture location.
+                <p class="viewer-honest">
+                    {% if scan['cam_path'] %}<strong>Model Attention — not a clinical annotation.</strong>
+                    The heatmap shows regions that most influenced the network, not a verified fracture location.
+                    Scroll to zoom, drag to pan, double-click to reset, press <kbd>M</kbd> to toggle the heatmap.{% endif %}
+                    {% if detections %}<br>Detected regions come from a detector validated on <em>pediatric wrist</em> radiographs only.{% endif %}
                 </p>
+                {% if not scan['cam_path'] and scan['gradcam_path'] %}
+                <!-- Legacy records: only the merged heatmap exists -->
+                <div class="scan-viewer" style="margin-top: 1rem;">
+                    <div class="scan-label" style="background: var(--primary);">Model Attention (Grad-CAM)</div>
+                    <img src="{{ url_for('media', filename=scan['gradcam_path']) }}" alt="Grad-CAM heatmap of model attention">
+                </div>
                 {% endif %}
             </div>
 
-            <!-- PER-PREDICTION PROBABILITIES + TRAINING HISTORY -->
+            <!-- PROBABILITIES + REVIEW + TRAINING HISTORY -->
             <div>
                 {% if top3 and top3|length > 0 %}
-                <h3 style="font-size: 0.875rem; font-weight: 600; color: var(--text-light); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em;">Most Likely Fracture Types (this scan)</h3>
+                <h3 style="font-size: 0.875rem; font-weight: 600; color: var(--text-light); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                    {% if scan['verdict'] == 'uncertain' or scan['result'] == 'Fracture Detected (type unclear)' %}
+                        Fracture type unclear — most likely candidates
+                    {% else %}
+                        Most Likely Fracture Types (this scan)
+                    {% endif %}
+                </h3>
                 <div style="border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem 1rem; margin-bottom: 1.5rem; background: var(--bg-main);">
                     {% for t in top3 %}
                     <div class="prob-row">
@@ -92,6 +172,24 @@
                         <div class="prob-value">{{ t.prob }}%</div>
                     </div>
                     {% endfor %}
+                </div>
+                {% endif %}
+
+                {% if scan['reviewed_by'] %}
+                <h3 style="font-size: 0.875rem; font-weight: 600; color: var(--text-light); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em;">Specialist Review</h3>
+                <div style="border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.5rem; background: var(--bg-main);">
+                    <div style="display: flex; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.6rem;">
+                        <span class="badge {{ 'badge-success' if scan['decision'] == 'Approved' else 'badge-danger' if scan['decision'] == 'Rejected' else 'badge-neutral' }}">
+                            {{ scan['decision'] or 'Reviewed' }} by {{ scan['reviewed_by'] }}
+                        </span>
+                        <span style="font-size: 0.75rem; color: var(--text-light);">{{ scan['reviewed_at'] }}</span>
+                    </div>
+                    {% if scan['final_diagnosis'] %}
+                    <p style="font-size: 0.9rem; color: var(--text-dark); font-weight: 600; margin-bottom: 0.4rem;">{{ scan['final_diagnosis'] }}</p>
+                    {% endif %}
+                    {% if scan['notes'] %}
+                    <p style="font-size: 0.85rem; color: var(--text-light); line-height: 1.55;">{{ scan['notes'] }}</p>
+                    {% endif %}
                 </div>
                 {% endif %}
 
@@ -130,14 +228,16 @@
         <div style="margin-top: 2rem; text-align: center;">
             <a href="{{ url_for('index') }}" class="btn btn-secondary">Analyze Another Scan</a>
         </div>
+        {% endif %}
     </div>
 </main>
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/viewer.js') }}?v=21"></script>
 {% set stage_meta = performance.stage2 if (fracture_detected and performance.stage2) else performance.stage1 %}
-{% if stage_meta and stage_meta.history %}
-<script>
+{% if scan['verdict'] != 'rejected' and stage_meta and stage_meta.history %}
+<script nonce="{{ csp_nonce }}">
     const history = {{ stage_meta.history | tojson }};
     const acc = history.accuracy || [];
     const valAcc = history.val_accuracy || [];
@@ -159,7 +259,7 @@
             data: {
                 labels: epochs,
                 datasets: [
-                    { label: "Training Accuracy", data: acc, borderColor: "#3b82f6", backgroundColor: "rgba(59,130,246,0.1)", borderWidth: 2, fill: true, tension: 0.3, pointRadius: 2 },
+                    { label: "Training Accuracy", data: acc, borderColor: "#0d9488", backgroundColor: "rgba(13,148,136,0.1)", borderWidth: 2, fill: true, tension: 0.3, pointRadius: 2 },
                     { label: "Validation Accuracy", data: valAcc, borderColor: "#10b981", backgroundColor: "transparent", borderWidth: 2, borderDash: [5,5], tension: 0.3, pointRadius: 2 }
                 ]
             },

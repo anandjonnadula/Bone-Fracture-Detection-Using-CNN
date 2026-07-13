@@ -1,0 +1,20 @@
+services:
+  app:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      # Set real values in a .env file or your shell — never commit secrets.
+      - SECRET_KEY=${SECRET_KEY:-}
+      - CLINICAL_KEY=${CLINICAL_KEY:-}
+      - ADMIN_KEY=${ADMIN_KEY:-}
+      - DEMO_MODE=${DEMO_MODE:-0}
+      - SECURE_COOKIES=${SECURE_COOKIES:-0}
+    volumes:
+      - db-data:/app/data     # SQLite database
+      - uploads:/app/media    # private patient images + reports (NOT static/)
+    restart: unless-stopped
+
+volumes:
+  db-data:
+  uploads:

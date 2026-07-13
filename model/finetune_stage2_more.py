@@ -14,13 +14,10 @@ history is extended so the app's chart shows the full curve.
 
 import json
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
-from tensorflow.keras.layers import BatchNormalization
-
 from data_utils import (
     build_augmenter,
     class_weights_from_counts,
@@ -29,6 +26,8 @@ from data_utils import (
     load_train_val,
     prepare,
 )
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
+from tensorflow.keras.layers import BatchNormalization
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TRAIN_DIR = os.path.join(BASE_DIR, "..", "dataset", "stage2_MultiClassification", "train")
@@ -108,7 +107,7 @@ def main():
     y_pred = np.argmax(y_prob, axis=1)
     top1 = float((y_pred == y_true).mean())
     top3 = float(np.mean([t in row for t, row in
-                          zip(y_true, np.argsort(y_prob, axis=1)[:, -3:])]))
+                          zip(y_true, np.argsort(y_prob, axis=1)[:, -3:], strict=False)]))
     print(f"\nContinuation test top-1: {top1:.4f} (previous {prev_top1:.4f}), top-3: {top3:.4f}")
 
     if top1 <= prev_top1:
@@ -122,7 +121,7 @@ def main():
     model.save(MODEL_PATH)
     for key, values in h.history.items():
         meta["history"].setdefault(key, []).extend(float(v) for v in values)
-    meta["trained_at"] = datetime.now(timezone.utc).isoformat()
+    meta["trained_at"] = datetime.now(UTC).isoformat()
     meta["continuation"] = {"unfrozen_layers": UNFREEZE, "lr": LR,
                             "monitor": "val_accuracy"}
     meta["test_metrics"] = {

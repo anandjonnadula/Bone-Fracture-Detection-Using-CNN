@@ -1,15 +1,21 @@
 {% extends "base.html" %}
+{% set theme_default = 'dark' %}
 {% block title %}Doctor Review | Bone Fracture Detection{% endblock %}
 
 {% block content %}
-<main class="app-layout" style="max-width: 950px;">
+<main class="app-layout" style="max-width: 1050px;">
     <div class="card" style="padding:0; overflow:hidden;">
-        <div class="panel-header" style="display: flex; justify-content: space-between; align-items: flex-start; padding: 1.5rem 1.5rem 1rem 1.5rem; margin:0; border-bottom: 1px solid var(--border-color);">
+        <div class="panel-header" style="display: flex; justify-content: space-between; align-items: flex-start; padding: 1.5rem 1.5rem 1rem 1.5rem; margin:0; border-bottom: 1px solid var(--border-color); gap: 1rem; flex-wrap: wrap;">
             <div>
                 <span class="badge badge-success" style="margin-bottom: 0.5rem;">Access Level: Medical Professional</span>
                 <h1 class="panel-title" style="font-size: 1.5rem; margin-top: 0;">Case Review Queue</h1>
-                <p style="color: var(--text-light); font-size: 0.875rem;">Patient-requested reviews are listed first. Append physician notes and record the final decision.</p>
+                <p style="color: var(--text-light); font-size: 0.875rem;">
+                    Flagged and patient-requested reviews are listed first. Mark up the radiograph,
+                    append physician notes and record the final decision — saved annotations are
+                    rendered into the regenerated PDF.
+                </p>
             </div>
+            <button class="lights-toggle" data-action="toggle-lights" type="button">☀ Lights</button>
         </div>
 
         {% if cases and cases|length > 0 %}
@@ -23,13 +29,23 @@
                             Record #{{ case['id'] }}
                             {% if case['patient_name'] %}<span style="font-weight: 500; color: var(--text-light); font-size: 0.875rem;">· patient: {{ case['patient_name'] }}</span>{% endif %}
                         </div>
-                        <div style="font-size: 0.8rem; color: var(--text-light);">Scan Date: {{ case['date'] or 'Unknown' }}</div>
+                        <div style="font-size: 0.8rem; color: var(--text-light);">
+                            Scan Date: {{ case['date'] or 'Unknown' }}
+                            {% if case['body_part'] %} · {{ case['body_part'] }}{% endif %}
+                            {% if case['view_position'] %} · view {{ case['view_position'] }}{% endif %}
+                            {% if case['source_format'] == 'dicom' %} · DICOM{% endif %}
+                        </div>
                     </div>
                     <div>
-                        {% if case['review_status'] == 'PENDING' %}
+                        {% if case['review_status'] == 'PENDING' and case['verdict'] == 'uncertain' %}
                             <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.25rem;">
-                                <span class="badge badge-info" style="font-weight: 800; border: 2px solid #0369a1; animation: pulse 2s infinite;">⚠️ Patient Requested Review</span>
-                                <span style="font-size: 0.65rem; color: #0369a1; font-weight: 600;">Action Required</span>
+                                <span class="badge badge-warning" style="font-weight: 800; border: 2px solid var(--warning); animation: pulse 2s infinite;">⚠ Auto-Flagged: Model Uncertain</span>
+                                <span style="font-size: 0.65rem; color: var(--warning); font-weight: 600;">Action Required</span>
+                            </div>
+                        {% elif case['review_status'] == 'PENDING' %}
+                            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.25rem;">
+                                <span class="badge" style="background: var(--primary-soft); color: var(--primary); border: 2px solid var(--primary); font-weight: 800; animation: pulse 2s infinite;">⚠️ Patient Requested Review</span>
+                                <span style="font-size: 0.65rem; color: var(--primary); font-weight: 600;">Action Required</span>
                             </div>
                         {% elif case['decision'] == 'Approved' %}
                             <span class="badge badge-success">Approved{% if case['reviewed_by'] %} by {{ case['reviewed_by'] }}{% endif %}</span>
@@ -41,37 +57,85 @@
                     </div>
                 </div>
 
-                <div class="responsive-2col" style="display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; align-items: start;">
-                    <!-- LEFT: IMAGES + AI FINDINGS -->
+                <div class="responsive-2col" style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 2rem; align-items: start;">
+                    <!-- LEFT: INTERACTIVE VIEWER + ANNOTATION TOOLS + AI FINDINGS -->
                     <div>
-                        <h3 style="font-size: 0.825rem; font-weight: 600; color: var(--text-dark); margin-bottom: 0.75rem; text-transform: uppercase;">Diagnostic Image</h3>
+                        <h3 style="font-size: 0.825rem; font-weight: 600; color: var(--text-dark); margin-bottom: 0.75rem; text-transform: uppercase;">
+                            Diagnostic Image
+                            {% if case['detections'] %}<span class="beta-chip">Localization beta — wrist-validated</span>{% endif %}
+                        </h3>
 
-                        <div class="scan-viewer" style="width: 100%; margin-bottom: 1rem;">
-                            <div class="scan-label">Original X-Ray</div>
-                            {% if case['image_path'] %}
-                            <img src="/{{ case['image_path'] }}" alt="Original X-ray for record {{ case['id'] }}">
-                            {% endif %}
+                        {% if case['image_path'] %}
+                        <div class="annot-toolbar" data-annotator-for="viewer-{{ case['id'] }}"
+                             data-save-url="{{ url_for('scan_annotations', scan_id=case['id']) }}">
+                            <button type="button" data-tool="select" class="active" title="Pan/zoom (no drawing)">✥ Select</button>
+                            <button type="button" data-tool="arrow" title="Draw an arrow">↗ Arrow</button>
+                            <button type="button" data-tool="ellipse" title="Draw an ellipse">◯ Ellipse</button>
+                            <button type="button" data-tool="path" title="Freehand draw">✎ Freehand</button>
+                            <button type="button" data-tool="label" title="Place a text label">T Label</button>
+                            <span class="annot-spacer"></span>
+                            <button type="button" class="annot-color" aria-label="Red"></button>
+                            <button type="button" class="annot-color" aria-label="Yellow"></button>
+                            <button type="button" class="annot-color" aria-label="Blue"></button>
+                            <span class="annot-spacer"></span>
+                            <button type="button" data-annot-undo title="Undo last shape">↺ Undo</button>
+                            <button type="button" data-annot-clear title="Remove all unsaved shapes">✕ Clear</button>
+                            <button type="button" data-annot-save title="Save annotations">💾 Save</button>
+                            <span class="annot-status"></span>
                         </div>
-                        {% if case['gradcam_path'] %}
-                        <div class="scan-viewer" style="width: 100%; margin-bottom: 1rem;">
-                            <div class="scan-label" style="background: var(--primary);">Model Attention</div>
-                            <img src="/{{ case['gradcam_path'] }}" alt="Grad-CAM heatmap for record {{ case['id'] }}">
+
+                        <div class="viewer-block" data-viewer id="viewer-{{ case['id'] }}"
+                             {% if case['cam_path'] %}data-cam="{{ url_for('media', filename=case['cam_path']) }}"{% endif %}
+                             {% if case['detections'] %}data-detections="{{ case['detections'] }}"{% endif %}
+                             {% if case['annotations_json'] %}data-annotations="{{ case['annotations_json'] }}"{% endif %}>
+                            <div class="xray-viewer">
+                                <div class="layers">
+                                    <img class="base" src="{{ url_for('media', filename=case['image_path']) }}" alt="Original X-ray for record {{ case['id'] }}">
+                                </div>
+                            </div>
+                            <div class="viewer-controls">
+                                {% if case['cam_path'] %}
+                                <label>Heatmap
+                                    <input type="range" min="0" max="100" value="0" data-cam-opacity
+                                           aria-label="Grad-CAM heatmap opacity">
+                                    <span data-cam-value>0%</span>
+                                </label>
+                                {% endif %}
+                                {% if case['detections'] %}
+                                <label><input type="checkbox" checked data-layer-toggle="boxes"> Regions</label>
+                                {% endif %}
+                                {% if case['annotations_json'] %}
+                                <label><input type="checkbox" checked data-layer-toggle="notes"> Saved annotations</label>
+                                {% endif %}
+                                <button type="button" class="viewer-reset">Reset view</button>
+                            </div>
                         </div>
+                        <p class="viewer-honest">
+                            <strong>Model Attention — not a clinical annotation.</strong>
+                            Scroll to zoom, drag to pan, double-click to reset{% if case['cam_path'] %}, press <kbd>M</kbd> to toggle the heatmap{% endif %}.
+                        </p>
+                        {% elif not case['image_path'] %}
+                        <div style="padding: 2rem; text-align: center; color: var(--text-light); font-size: 0.85rem;">Image not available</div>
                         {% endif %}
 
-                        <div style="background: var(--bg-card); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+                        <div style="background: var(--bg-card); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); margin-top: 1rem;">
+                            {% if case['tier'] %}
+                            <div style="margin-bottom: 0.6rem;">
+                                <span class="tier-badge tier-{{ case['tier'] }}">{{ tier_text_for(case['tier']) }}</span>
+                            </div>
+                            {% endif %}
                             <div style="display: flex; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.5rem; font-size: 0.875rem;">
                                 <span style="color: var(--text-light);">AI Finding:</span>
-                                <span style="font-weight: 600; text-align: right; color: {% if case['result'] and 'No Fracture' in case['result'] %}var(--success){% else %}var(--danger){% endif %}">{{ case['result'] }}</span>
+                                <span style="font-weight: 600; text-align: right; color: {% if case['verdict'] == 'uncertain' %}var(--warning){% elif case['result'] and 'No Fracture' in case['result'] %}var(--success){% else %}var(--danger){% endif %}">{{ case['result'] }}</span>
                             </div>
                             <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.875rem;">
                                 <span style="color: var(--text-light);">Confidence:</span>
-                                <span style="font-weight: 600; color: var(--text-dark);">{{ case['confidence'] | round(2) }}%</span>
+                                <span style="font-weight: 600; color: var(--text-dark);">{{ (case['confidence'] or 0) | round(2) }}%</span>
                             </div>
                             {% if case['fracture_prob'] is not none %}
                             <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.875rem;">
-                                <span style="color: var(--text-light);">Fracture probability:</span>
-                                <span style="font-weight: 600; color: var(--text-dark);">{{ case['fracture_prob'] | round(2) }}%</span>
+                                <span style="color: var(--text-light);">Calibrated fracture probability:</span>
+                                <span style="font-weight: 600; color: var(--text-dark);">{{ (case['fracture_prob'] or 0) | round(2) }}%</span>
                             </div>
                             {% endif %}
                             {% if case['severity'] %}
@@ -82,7 +146,7 @@
                             {% endif %}
                         </div>
                         {% if case['pdf_path'] %}
-                        <a href="/{{ case['pdf_path'] }}" target="_blank" class="btn btn-secondary" style="margin-top: 0.75rem; width: 100%; font-size: 0.8rem;">Open PDF Report</a>
+                        <a href="{{ url_for('media', filename=case['pdf_path']) }}" target="_blank" class="btn btn-secondary" style="margin-top: 0.75rem; width: 100%; font-size: 0.8rem;">Open PDF Report</a>
                         {% endif %}
                     </div>
 
@@ -91,6 +155,7 @@
                         <h3 style="font-size: 0.825rem; font-weight: 600; color: var(--text-dark); margin-bottom: 0.75rem; text-transform: uppercase;">Physician Evaluation Form</h3>
 
                         <form method="POST">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <input type="hidden" name="id" value="{{ case['id'] }}">
 
                             <div style="margin-bottom: 1rem;">
@@ -112,8 +177,11 @@
                                     Reject AI Finding
                                 </button>
                             </div>
+                            <p style="font-size: 0.72rem; color: var(--text-light); margin-top: 0.75rem;">
+                                Recording a decision regenerates the PDF with your notes, diagnosis and any saved annotations.
+                            </p>
                             {% if case['reviewed_by'] %}
-                            <p style="font-size: 0.75rem; color: var(--text-light); margin-top: 0.75rem;">
+                            <p style="font-size: 0.75rem; color: var(--text-light); margin-top: 0.25rem;">
                                 Last reviewed by <strong>{{ case['reviewed_by'] }}</strong> at {{ case['reviewed_at'] }}. Saving again updates the record and its PDF.
                             </p>
                             {% endif %}
@@ -131,4 +199,9 @@
         {% endif %}
     </div>
 </main>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/viewer.js') }}?v=21"></script>
+<script src="{{ url_for('static', filename='js/annotate.js') }}?v=21"></script>
 {% endblock %}

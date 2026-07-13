@@ -98,7 +98,7 @@ def stage2_metrics(y_true, probs):
     return {
         "n": int(len(y_true)),
         "top1_accuracy": round(float((y_pred == y_true).mean()), 4),
-        "top3_accuracy": round(float(np.mean([t in row for t, row in zip(y_true, top3)])), 4),
+        "top3_accuracy": round(float(np.mean([t in row for t, row in zip(y_true, top3, strict=False)])), 4),
         "macro_f1": round(float(f1_score(y_true, y_pred, average="macro", zero_division=0)), 4),
     }
 

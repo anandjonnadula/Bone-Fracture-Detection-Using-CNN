@@ -16,13 +16,14 @@
                 <span class="badge badge-neutral">System Ready</span>
             </div>
 
-            <form action="{{ url_for('predict') }}" method="post" enctype="multipart/form-data" onsubmit="return submitForm()">
+            <form id="uploadForm" action="{{ url_for('predict_route') }}" method="post" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                 <label id="uploadZone" class="upload-zone" style="display: block;">
-                    <input id="fileInput" type="file" name="file" accept="image/jpeg,image/png" class="hidden" onchange="handleFileSelect(event)" required>
+                    <input id="fileInput" type="file" name="file" accept="image/jpeg,image/png,.dcm,application/dicom" class="hidden" required>
                     <svg class="upload-icon" style="width: 48px; height: 48px; margin: 0 auto 1rem; display:block;" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"></path></svg>
                     <div class="upload-text">Browse files or drag and drop</div>
-                    <div class="upload-subtext">JPG or PNG · up to 15 MB</div>
+                    <div class="upload-subtext">JPG / PNG (up to 15 MB) · DICOM .dcm (up to 50 MB{% if demo_mode %} — 5 MB in demo{% endif %})</div>
                 </label>
                 <div id="uploadError" class="upload-error hidden" role="alert"></div>
 
@@ -40,7 +41,7 @@
                                 filename.jpg
                             </div>
                             <div>
-                                <button type="button" class="btn btn-secondary" onclick="removeFile()" style="padding: 0.4rem 1rem; font-size: 0.75rem;">Remove File</button>
+                                <button type="button" class="btn btn-secondary" data-action="remove-file" style="padding: 0.4rem 1rem; font-size: 0.75rem;">Remove File</button>
                             </div>
                         </div>
                     </div>
@@ -53,10 +54,34 @@
                     </button>
                     <button type="button" id="btnLoading" class="btn btn-primary hidden" disabled style="opacity: 0.8; cursor: not-allowed;">
                         <div class="spinner" style="width: 16px; height: 16px; border-width: 2px;"></div>
-                        Processing Neural Network...
+                        Uploading…
                     </button>
                 </div>
             </form>
+
+            {% if samples %}
+            <!-- SAMPLE GALLERY (demo mode) -->
+            <div class="sample-strip">
+                <h3 style="font-size: 0.875rem; font-weight: 600; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.05em;">
+                    Or try a sample X-ray
+                </h3>
+                <p style="font-size: 0.78rem; color: var(--text-light); margin-top: 0.2rem;">
+                    One click runs the full pipeline — screening, typing, explainability and the PDF report.
+                </p>
+                <div class="sample-grid">
+                    {% for s in samples %}
+                    <form action="{{ url_for('predict_sample') }}" method="post">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="sample" value="{{ s.file }}">
+                        <button type="submit" class="sample-card" style="width: 100%;">
+                            <img src="{{ url_for('static', filename='samples/' + s.file) }}" alt="Sample: {{ s.label }}">
+                            <span>{{ s.label }}</span>
+                        </button>
+                    </form>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
         </div>
 </main>
 {% endblock %}

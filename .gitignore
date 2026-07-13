@@ -2,18 +2,34 @@ venv/
 .venv/
 __pycache__/
 *.pyc
+.pytest_cache/
+.ruff_cache/
 
 # Data & user content (not part of the repo)
 dataset/
 .dataset_backups/
 database.db
+data/
+media/
 static/uploads/*
 
-# Legacy models (128 MB .h5 exceeds GitHub limits; .keras models ARE tracked)
+# Legacy models (128 MB .h5 exceeds GitHub limits; .keras models ARE tracked,
+# as are stage*_meta.json and ood_stats.npz - small model artifacts)
 model/saved_model/*.h5
+
+# Pre-retrain backup (transient safety copy) and the intermediate MURA backbone
+# (its weights are already baked into the deployed stage1_model.keras; re-create
+# with model/pretrain_backbone.py — see docs/TRAINING.md)
+model/saved_model/.pre_retrain_backup/
+model/saved_model/backbone_radiograph.*
+
+# Detector weights are trained locally (see docs/TRAINING.md); only the
+# meta JSON is committed
+model/detector/weights/
 
 # Local test artifacts
 Testing/
 
 # Local tooling config
 .claude/
+.env

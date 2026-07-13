@@ -68,6 +68,25 @@
                 {% endif %}
             </div>
 
+            {% if meta.calibration %}
+            <div style="border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-main); padding: 1rem; margin: 0.75rem 0;">
+                <h3 style="font-size: 0.8rem; font-weight: 700; color: var(--text-dark); text-transform: uppercase; margin-bottom: 0.5rem;">Calibration (temperature scaling)</h3>
+                <ul style="font-size: 0.85rem; color: var(--text-dark); line-height: 1.8; padding-left: 1.25rem;">
+                    <li>Temperature T = <strong>{{ meta.calibration.temperature | round(4) }}</strong>, fitted by NLL on the validation split ({{ meta.calibration.calibrated_at[:10] }}).</li>
+                    <li>Expected calibration error: <strong>{{ meta.calibration.val_ece_before | round(4) }}</strong> before → <strong>{{ meta.calibration.val_ece_after | round(4) }}</strong> after.</li>
+                    {% if meta.abstain_low is defined and meta.abstain_low %}
+                    <li>Abstention band (auto-review): calibrated p ∈ <strong>[{{ (meta.abstain_low * 100) | round(1) }}%, {{ (meta.abstain_high * 100) | round(1) }}%]</strong> around the calibrated threshold {{ (meta.threshold_calibrated * 100) | round(1) }}%.</li>
+                    {% if meta.calibration.val_abstain_fraction is defined %}
+                    <li>On validation: {{ (meta.calibration.val_abstain_fraction * 100) | round(2) }}% of scans abstain; forced decisions are {{ (meta.calibration.val_accuracy_outside_band * 100) | round(1) }}% accurate outside the band vs {{ (meta.calibration.val_accuracy_inside_band_forced * 100) | round(1) }}% inside — the band catches exactly the scans that need a human.</li>
+                    {% endif %}
+                    {% endif %}
+                    {% if meta.abstain_top1 is defined and meta.abstain_top1 %}
+                    <li>Type abstention: if the calibrated top-1 probability is below {{ (meta.abstain_top1 * 100) | round(0) | int }}%, the UI reports "type unclear" and shows the top-3 candidates instead of asserting a class.</li>
+                    {% endif %}
+                </ul>
+            </div>
+            {% endif %}
+
             <details style="margin-top: 0.5rem;">
                 <summary style="cursor: pointer; font-size: 0.85rem; font-weight: 600; color: var(--primary);">Training configuration</summary>
                 <ul style="font-size: 0.85rem; color: var(--text-dark); line-height: 1.8; padding-left: 1.25rem; margin-top: 0.5rem;">
@@ -89,6 +108,22 @@
         </div>
         {% endfor %}
 
+        <!-- OOD GATE -->
+        {% if ood_info %}
+        <div style="border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem; margin-bottom: 1.5rem;">
+            <h2 style="font-size: 1.15rem; font-weight: 700; color: var(--text-dark); margin-bottom: 0.75rem;">Out-of-Distribution Gate</h2>
+            <p style="font-size: 0.875rem; color: var(--text-light); margin-bottom: 0.75rem;">
+                Non-radiographs (photos, documents, blank images) are refused before Stage 1
+                instead of receiving a confident fracture probability.
+            </p>
+            <ul style="font-size: 0.875rem; color: var(--text-dark); line-height: 1.8; padding-left: 1.25rem;">
+                <li>Layer 1 — color pre-filter: images with mean HSV saturation &gt; 0.25 are rejected (radiographs are effectively monochrome).</li>
+                <li>Layer 2 — embedding distance: k-NN cosine distance (k = {{ ood_info.k }}) on Stage-1 backbone embeddings against {{ ood_info.refs }} reference training embeddings.</li>
+                <li>Acceptance threshold {{ ood_info.threshold }} = the {{ ood_info.percentile }}th percentile of training-set distances; synthetic negatives (blank/noise/gradient images) all score well outside it.</li>
+            </ul>
+        </div>
+        {% endif %}
+
         <!-- DATASET -->
         <div style="border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.5rem; margin-bottom: 1.5rem;">
             <h2 style="font-size: 1.15rem; font-weight: 700; color: var(--text-dark); margin-bottom: 0.75rem;">Training Data</h2>
@@ -104,8 +139,9 @@
             <h3 style="font-size: 0.875rem; font-weight: 700; color: var(--danger); text-transform: uppercase; margin-bottom: 0.5rem;">Known limitations</h3>
             <ul style="font-size: 0.875rem; color: var(--text-dark); line-height: 1.7; padding-left: 1.25rem;">
                 <li>Trained on a small, web-scraped dataset — not on clinical PACS data; performance on real hospital images is unverified.</li>
-                <li>No DICOM support; standard JPG/PNG only.</li>
+                <li>DICOM (.dcm) uploads are converted to 8-bit PNG with VOI LUT windowing; only non-identifying tags (body part, view, modality) are kept and the original file is deleted — no PHI is stored.</li>
                 <li>Grad-CAM shows model attention, which is not a clinically validated localization of the fracture.</li>
+                <li>The optional fracture-localization detector (when trained) is validated on <strong>pediatric wrist</strong> radiographs only; boxes on other body parts are unreliable and labeled "beta" everywhere they appear.</li>
                 <li>This is a student research project. It has no regulatory clearance of any kind and must not inform real medical decisions.</li>
             </ul>
         </div>

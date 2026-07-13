@@ -1,0 +1,33 @@
+# Data & user content never belong in the image
+dataset/
+.dataset_backups/
+database.db
+media/
+static/uploads/
+Testing/
+
+# Environments / caches
+venv*/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Legacy 128 MB .h5 models (the .keras models + meta + ood_stats.npz DO ship)
+model/saved_model/*.h5
+
+# VCS / tooling / CI
+.git/
+.github/
+.claude/
+.gitignore
+
+# Docs & local helpers not needed at runtime
+README.md
+UPGRADE_PLAN.md
+docs/
+run.bat
+requirements-dev.txt
+requirements-train.txt
+tests/

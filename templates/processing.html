@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Analyzing Scan | Bone Fracture Detection{% endblock %}
+
+{% block content %}
+<main class="app-layout" style="max-width: 640px;">
+    <div class="card animate-fade-in" id="processing"
+         data-api="{{ url_for('job_status', job_id=job['id']) }}"
+         data-upload-url="{{ url_for('index') }}">
+        <div class="panel-header">
+            <h1 class="panel-title" style="font-size: 1.4rem;">Analyzing your scan</h1>
+            <p style="color: var(--text-light); font-size: 0.875rem; margin-top: 0.25rem;">
+                You can safely refresh this page — the analysis keeps running on the server.
+            </p>
+        </div>
+
+        <ol class="stepper" aria-live="polite">
+            <li><span class="step-dot">1</span>
+                <div><div class="step-label">Preprocessing</div>
+                <div class="step-sub">Reading and normalizing the image</div></div></li>
+            <li><span class="step-dot">2</span>
+                <div><div class="step-label">Checking image type</div>
+                <div class="step-sub">Confirming this is a bone radiograph</div></div></li>
+            <li><span class="step-dot">3</span>
+                <div><div class="step-label">Fracture screening</div>
+                <div class="step-sub">Stage 1 — calibrated fracture probability</div></div></li>
+            <li><span class="step-dot">4</span>
+                <div><div class="step-label">Type classification &amp; localization</div>
+                <div class="step-sub">Stage 2 — most likely fracture types</div></div></li>
+            <li><span class="step-dot">5</span>
+                <div><div class="step-label">Explainability</div>
+                <div class="step-sub">Generating the Grad-CAM attention map</div></div></li>
+            <li><span class="step-dot">6</span>
+                <div><div class="step-label">Report</div>
+                <div class="step-sub">Writing the PDF report</div></div></li>
+        </ol>
+
+        <div id="processingMessage" class="alert alert-info hidden" role="status"></div>
+    </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/processing.js') }}?v=21"></script>
+{% endblock %}

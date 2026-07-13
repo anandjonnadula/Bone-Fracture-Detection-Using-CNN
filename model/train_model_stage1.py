@@ -22,14 +22,13 @@ Label semantics: the model outputs sigmoid P(fracture). Folders sort as
 to make 'fracture' the positive class.
 """
 
+import argparse
 import json
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
-
 from cnn_model import build_stage1_model, unfreeze_top_layers
 from data_utils import (
     build_augmenter,
@@ -40,6 +39,7 @@ from data_utils import (
     merge_histories,
     prepare,
 )
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TRAIN_DIR = os.path.join(BASE_DIR, "..", "dataset", "stage1_BinaryClassification", "train")
@@ -105,7 +105,28 @@ def binary_metrics(y_true, y_prob, threshold):
     }
 
 
+def parse_args():
+    ap = argparse.ArgumentParser(description="Stage 1 trainer")
+    ap.add_argument(
+        "--init-weights", default=None,
+        help="Optional weights file to initialize from (e.g. "
+             "saved_model/backbone_radiograph.weights.h5 from pretrain_backbone.py)",
+    )
+    return ap.parse_args()
+
+
+def count_external(train_dir):
+    """Images that came from external sets (prefixed by the prepare scripts)."""
+    counts = {}
+    for _root, _dirs, files in os.walk(train_dir):
+        for f in files:
+            if f.startswith("fracatlas_"):
+                counts["fracatlas"] = counts.get("fracatlas", 0) + 1
+    return counts
+
+
 def main():
+    args = parse_args()
     counts = count_per_class(TRAIN_DIR)
     print("Train counts:", counts)
 
@@ -129,6 +150,9 @@ def main():
     print("Class weights {0: no_fracture, 1: fracture}:", class_weights)
 
     model, base = build_stage1_model()
+    if args.init_weights:
+        model.load_weights(args.init_weights, skip_mismatch=True)
+        print(f"Initialized weights from {args.init_weights}")
     metrics = [
         "accuracy",
         tf.keras.metrics.AUC(name="auc"),
@@ -196,8 +220,11 @@ def main():
     model.save(model_path)
 
     meta = {
-        "trained_at": datetime.now(timezone.utc).isoformat(),
-        "backbone": "MobileNetV2 (ImageNet)",
+        "trained_at": datetime.now(UTC).isoformat(),
+        "backbone": ("MobileNetV2 (radiograph-pretrained)" if args.init_weights
+                     else "MobileNetV2 (ImageNet)"),
+        "init_weights": args.init_weights,
+        "external_images": count_external(TRAIN_DIR),
         "input_size": 224,
         "positive_class": "fracture",
         "output_semantics": "sigmoid = P(fracture); raw 0-255 RGB input",
@@ -213,7 +240,9 @@ def main():
         json.dump(meta, f, indent=2)
 
     print(f"\n[OK] Stage 1 model saved to {model_path}")
-    print(f"[OK] Metadata + history saved to stage1_meta.json")
+    print("[OK] Metadata + history saved to stage1_meta.json")
+    print("[!] Re-run calibrate.py and build_ood_stats.py — calibration and "
+          "OOD statistics are per-model artifacts.")
 
 
 if __name__ == "__main__":

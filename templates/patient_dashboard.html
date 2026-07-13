@@ -32,10 +32,15 @@
                     <div style="font-size: 0.8rem; color: var(--text-light);">Date: {{ case['date'] or 'Unknown' }}</div>
                 </div>
                 <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                    <a href="{{ url_for('results', scan_id=case['id']) }}" class="btn btn-primary" style="font-size: 0.72rem; padding: 0.3rem 0.7rem;">View Results</a>
                     {% if case['pdf_path'] %}
-                        <a href="/{{ case['pdf_path'] }}" target="_blank" class="btn btn-secondary" style="font-size: 0.72rem; padding: 0.3rem 0.7rem;">PDF Report</a>
+                        <a href="{{ url_for('media', filename=case['pdf_path']) }}" target="_blank" class="btn btn-secondary" style="font-size: 0.72rem; padding: 0.3rem 0.7rem;">PDF Report</a>
                     {% endif %}
-                    {% if case['review_status'] == 'PENDING' %}
+                    {% if case['verdict'] == 'rejected' %}
+                        <span class="badge badge-neutral">Not an X-ray — not scored</span>
+                    {% elif case['review_status'] == 'PENDING' and case['verdict'] == 'uncertain' %}
+                        <span class="badge badge-info" style="animation: pulse 2s infinite;">Flagged Automatically — Doctor Review Requested ⏳</span>
+                    {% elif case['review_status'] == 'PENDING' %}
                         <span class="badge badge-info" style="animation: pulse 2s infinite;">Review Requested ⏳</span>
                     {% elif case['decision'] == 'Approved' %}
                         <span class="badge badge-success">Doctor Approved ✓</span>
@@ -54,7 +59,7 @@
                     <div class="scan-viewer" style="width: 100%;">
                         <div class="scan-label">Original X-Ray</div>
                         {% if case['image_path'] %}
-                            <img src="/{{ case['image_path'] }}" alt="X-ray scan for record {{ case['id'] }}" style="width:100%;">
+                            <img src="{{ url_for('media', filename=case['image_path']) }}" alt="X-ray scan for record {{ case['id'] }}" style="width:100%;">
                         {% else %}
                             <div style="height:160px; display:flex; align-items:center; justify-content:center; color:var(--text-light); font-size:0.8rem;">Image not available</div>
                         {% endif %}
@@ -62,7 +67,7 @@
                     {% if case['gradcam_path'] %}
                     <div class="scan-viewer" style="width: 100%; margin-top: 0.75rem;">
                         <div class="scan-label" style="background: var(--primary);">Model Attention</div>
-                        <img src="/{{ case['gradcam_path'] }}" alt="Grad-CAM heatmap for record {{ case['id'] }}" style="width:100%;">
+                        <img src="{{ url_for('media', filename=case['gradcam_path']) }}" alt="Grad-CAM heatmap for record {{ case['id'] }}" style="width:100%;">
                     </div>
                     {% endif %}
                 </div>
@@ -70,19 +75,24 @@
                 <div>
                     <div style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--text-light); margin-bottom: 0.75rem;">Diagnostic Information</div>
 
+                    {% if case['tier'] %}
+                    <div style="margin-bottom: 0.75rem;">
+                        <span class="tier-badge tier-{{ case['tier'] }}">{{ tier_text_for(case['tier']) }}</span>
+                    </div>
+                    {% endif %}
                     <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 1rem; display: flex; flex-direction: column; gap: 0.6rem;">
                         <div style="display: flex; justify-content: space-between; gap: 1rem; font-size: 0.875rem;">
                             <span style="color: var(--text-light);">Result:</span>
-                            <span style="font-weight: 600; text-align: right; color: {% if case['result'] and 'No Fracture' in case['result'] %}var(--success){% else %}var(--danger){% endif %};">{{ case['result'] or 'N/A' }}</span>
+                            <span style="font-weight: 600; text-align: right; color: {% if case['verdict'] == 'uncertain' %}var(--warning){% elif case['verdict'] == 'rejected' %}var(--text-light){% elif case['result'] and 'No Fracture' in case['result'] %}var(--success){% else %}var(--danger){% endif %};">{{ case['result'] or 'Processing…' }}</span>
                         </div>
                         <div style="display: flex; justify-content: space-between; font-size: 0.875rem;">
                             <span style="color: var(--text-light);">Confidence:</span>
-                            <span style="font-weight: 600; color: var(--text-dark);">{{ case['confidence'] | round(2) }}%</span>
+                            <span style="font-weight: 600; color: var(--text-dark);">{{ (case['confidence'] or 0) | round(2) }}%</span>
                         </div>
                         {% if case['fracture_prob'] is not none %}
                         <div style="display: flex; justify-content: space-between; font-size: 0.875rem;">
                             <span style="color: var(--text-light);">Fracture probability:</span>
-                            <span style="font-weight: 600; color: var(--text-dark);">{{ case['fracture_prob'] | round(2) }}%</span>
+                            <span style="font-weight: 600; color: var(--text-dark);">{{ (case['fracture_prob'] or 0) | round(2) }}%</span>
                         </div>
                         {% endif %}
                         <div style="display: flex; justify-content: space-between; font-size: 0.875rem;">
@@ -92,7 +102,7 @@
                     </div>
 
                     {% if case['final_diagnosis'] %}
-                    <div style="margin-top: 1rem; border-left: 4px solid var(--primary); background: rgba(37, 99, 235, 0.05); padding: 0.75rem 1rem; border-radius: 0 var(--radius-sm) var(--radius-sm) 0;">
+                    <div style="margin-top: 1rem; border-left: 4px solid var(--primary); background: var(--primary-soft); padding: 0.75rem 1rem; border-radius: 0 var(--radius-sm) var(--radius-sm) 0;">
                         <div style="font-size: 0.75rem; font-weight: 600; color: var(--primary); text-transform: uppercase; margin-bottom: 0.3rem;">
                             Doctor's Final Diagnosis
                             {% if case['reviewed_by'] %}<span style="opacity: 0.7; text-transform: none;">— {{ case['reviewed_by'] }}, {{ case['reviewed_at'] }}</span>{% endif %}
@@ -108,9 +118,10 @@
                     </div>
                     {% endif %}
 
-                    {% if case['review_status'] == 'NONE' and not case['decision'] %}
+                    {% if case['review_status'] == 'NONE' and not case['decision'] and case['verdict'] != 'rejected' %}
                     <form action="{{ url_for('request_review', record_id=case['id']) }}" method="POST" style="margin-top: 1.5rem;">
-                        <button type="submit" class="btn btn-primary" style="width: 100%; font-size: 0.85rem; background: #0369a1; border-color: #0369a1; padding: 0.75rem; font-weight: 600; border-radius: 8px;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-primary" style="width: 100%; font-size: 0.85rem; padding: 0.75rem; font-weight: 600;">
                             Request Specialist Review
                         </button>
                     </form>

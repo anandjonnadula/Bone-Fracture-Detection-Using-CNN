@@ -1,0 +1,16 @@
+# Extra dependencies only needed for TRAINING / data preparation — not for
+# serving the web app. Keep these out of the Docker image.
+#
+# Ultralytics is AGPL-3.0: this project's MIT code merely *uses* it as a
+# runtime dependency for the optional fracture-localization stage (see
+# docs/TRAINING.md for the licensing note). If AGPL is unacceptable for your
+# deployment, YOLOX (Apache-2.0) is the documented fallback.
+#
+# NOTE (Windows / headless): ultralytics depends on the full `opencv-python`,
+# which would replace this project's `opencv-python-headless`. Install order:
+#     1. stop the dev server first (it locks cv2.pyd on Windows)
+#     2. pip install -r requirements-train.txt
+#     3. pip install --force-reinstall opencv-python-headless==5.0.0.93
+# Ultralytics works fine with the headless build; step 3 just restores it so
+# the Docker image assumptions hold.
+ultralytics>=8.3

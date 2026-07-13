@@ -635,5 +635,13 @@
     "unfrozen_layers": 80,
     "lr": 3e-05,
     "monitor": "val_accuracy"
-  }
+  },
+  "calibration": {
+    "temperature": 1.442209777039145,
+    "method": "temperature_scaling",
+    "val_ece_before": 0.13295162078177575,
+    "val_ece_after": 0.10003825454133572,
+    "calibrated_at": "2026-07-09T06:39:16.658058+00:00"
+  },
+  "abstain_top1": 0.45
 }

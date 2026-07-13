@@ -1,0 +1,24 @@
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["dataset", ".dataset_backups", "Testing", "static", "media", "*.ipynb"]
+
+[tool.ruff.lint]
+# E/F: pycodestyle + pyflakes, I: import sorting, B: bugbear, UP: pyupgrade
+select = ["E", "F", "I", "B", "UP"]
+ignore = [
+    "E501", # long lines — templates/strings make this noisy; line-length is advisory
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Training scripts intentionally import heavy libs inside main() and print()
+"model/*.py" = ["E402"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "model: tests that load the real TensorFlow models (slower)",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
