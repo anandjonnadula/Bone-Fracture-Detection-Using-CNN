@@ -1,4 +1,5 @@
-FROM python:3.11-slim
+# 3.13 to match the pinned deps: numpy 2.5 / scipy 1.18 require Python >= 3.12.
+FROM python:3.13-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /app

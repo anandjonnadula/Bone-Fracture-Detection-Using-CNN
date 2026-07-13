@@ -1,4 +1,6 @@
-# Pinned, known-good versions (Python 3.11–3.13, CPU TensorFlow).
+# Pinned, known-good versions (Python 3.12+, tested on 3.13; CPU TensorFlow).
+# NOTE: numpy 2.5 and scipy 1.18 require Python >= 3.12 — the CI workflow and
+# the Dockerfile both use python:3.13 to match.
 # NOTE (Windows): create the virtualenv at a SHORT path, e.g.
 #   python -m venv %USERPROFILE%\.venvs\bfd
 # Installing TensorFlow into a venv nested deep inside this project exceeds
