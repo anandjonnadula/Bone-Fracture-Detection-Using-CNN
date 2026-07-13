@@ -1,126 +1,133 @@
-# Deploy the live demo — Hugging Face Spaces (free)
+# Deploy the live demo
 
-Target: a **Docker Space** on Hugging Face — free CPU tier with 16 GB RAM
-(enough for TensorFlow; Render/Railway free tiers only give 512 MB and can't
-run TF). The image from this repo's `Dockerfile` runs there as-is: it listens
-on port **7860** and creates its SQLite DB + media dir in world-writable paths,
-so it works whether the platform runs the container as root or a non-root user.
-
-You need: a free Hugging Face account and a Hugging Face **write access token**.
-The steps below are the parts only you can do (they use your account); the repo
-is already prepared for all of it.
+> **Heads-up (mid-2026):** Hugging Face moved the **Docker and Gradio** Space
+> SDKs behind a paid **PRO** subscription — only **Static** Spaces are free now,
+> and those can't run a Python/TensorFlow backend. So the recommended free host
+> is **Google Cloud Run** (below). The old Hugging Face steps are kept at the
+> bottom for anyone who has HF PRO.
 
 ---
 
-## 1. Create the Space
+## Google Cloud Run (recommended, free)
 
-1. Sign in at <https://huggingface.co> (free — <https://huggingface.co/join>).
-2. Go to <https://huggingface.co/new-space>.
-3. Fill in:
-   - **Owner**: your username
-   - **Space name**: `bone-fracture-detection` (becomes the URL)
-   - **License**: MIT
-   - **SDK**: **Docker** → **Blank**
-   - **Hardware**: **CPU basic** (free)
-   - **Visibility**: **Public** (so you can share it on your resume)
-4. Click **Create Space**. It starts empty.
+Cloud Run runs this repo's Docker image as-is, **scales to zero** when idle
+(so a low-traffic resume demo stays within the free tier ≈ $0), and gives a
+professional URL like `https://bone-fracture-detection-xxxx.run.app`.
 
-## 2. Add the Space's secrets & variables
+You need a Google account with **billing enabled** — a card is required for
+verification, but you stay inside the free tier and set a low instance cap so
+you aren't charged. (The only tiny non-zero cost is ~a few cents/month to store
+the ~3 GB container image; negligible, and you can delete old revisions.)
 
-In the Space: **Settings → Variables and secrets → New secret / New variable**:
+### One key setting
 
-| Name | Kind | Value |
-|---|---|---|
-| `SECRET_KEY` | **secret** | the 64-char key generated for you (or any long random string) |
-| `DEMO_MODE` | variable | `1` |
-| `SECURE_COOKIES` | variable | `1` |
+Cloud Run allocates CPU **only during a request**, so the app must run
+inference *in* the request rather than in a background thread. Pass
+**`SYNC_JOBS=1`** (shown below) — the upload then processes synchronously and
+redirects straight to the result. Everything else is unchanged.
 
-Do **not** set `CLINICAL_KEY` / `ADMIN_KEY` — demo mode disables clinical
-registration and seeds `demo-patient` / `demo-doctor` / `demo-admin` accounts
-(their rotating passwords appear on the login page). `PORT` is not needed — the
-image already defaults to 7860, which the Space README's `app_port` matches.
+### Steps (all in the browser — no local installs)
 
-## 3. Get a write token
+1. **Create a project & enable billing**
+   - Sign in at <https://console.cloud.google.com> → create a project
+     (e.g. `bone-fracture-demo`).
+   - Billing → link a billing account (adds a card; free-tier usage isn't
+     charged). Optionally set a **Budget alert** at $1 for peace of mind.
 
-<https://huggingface.co/settings/tokens> → **New token** → type **Write** →
-copy it. You'll paste it as the *password* when git pushes to the Space.
+2. **Open Cloud Shell** (the `>_` icon, top-right of the console). It's a free
+   browser terminal with `gcloud`, Docker and git preinstalled.
 
-## 4. Push the code to the Space
+3. **Clone and deploy** — paste this (replace `<KEY>` with your SECRET_KEY):
 
-The Space is its own git repo. Push a **deploy branch** to it — this keeps your
-GitHub `main` untouched (GitHub keeps the clean README and regular-git models;
-the Space gets the front-matter README and LFS-tracked models). Hugging Face
-requires **git-LFS** for files > 10 MB (the two `.keras` models), so:
+   ```bash
+   git clone https://github.com/anandjonnadula/Bone-Fracture-Detection-Using-CNN.git
+   cd Bone-Fracture-Detection-Using-CNN
+
+   gcloud run deploy bone-fracture-detection \
+     --source . \
+     --region us-central1 \
+     --allow-unauthenticated \
+     --memory 2Gi \
+     --cpu 1 \
+     --timeout 300 \
+     --max-instances 3 \
+     --set-env-vars SECRET_KEY=<KEY>,DEMO_MODE=1,SECURE_COOKIES=1,SYNC_JOBS=1,PRELOAD_MODELS=0
+   ```
+
+   - When prompted, let it **enable the required APIs** (Run, Cloud Build,
+     Artifact Registry) and pick region `us-central1` if asked.
+   - It uploads the source, builds the image with Cloud Build (installs
+     TensorFlow — **~5–10 min the first time**), and deploys.
+   - `2Gi` memory is required (TensorFlow needs ~1.5 GB). `--max-instances 3`
+     caps cost. `--allow-unauthenticated` makes it public.
+
+4. **Open the URL** it prints (`Service URL: https://…run.app`). The login page
+   lists the demo accounts; the upload page has "Try a sample X-ray."
+
+   > First request loads the models (~30–60 s) and the whole pipeline runs
+   > during that upload request, so the very first scan is slow; later scans
+   > take a few seconds. (With `SYNC_JOBS=1` the progress stepper doesn't
+   > animate — the result appears when processing finishes. That's expected on
+   > the free, CPU-throttled tier.)
+
+### Update the demo later
 
 ```bash
-# Install git-LFS once if you don't have it: https://git-lfs.com
+cd Bone-Fracture-Detection-Using-CNN && git pull
+gcloud run deploy bone-fracture-detection --source . --region us-central1 \
+  --set-env-vars SECRET_KEY=<KEY>,DEMO_MODE=1,SECURE_COOKIES=1,SYNC_JOBS=1,PRELOAD_MODELS=0
+```
+
+### Staying free / cost control
+
+- Cloud Run free tier (per month): 2M requests, 360k GiB-seconds, 180k
+  vCPU-seconds — a personal demo won't come close. Idle = $0 (scales to zero).
+- Keep `--max-instances` small (3) and set a **Budget alert**.
+- To stop billing entirely later: `gcloud run services delete bone-fracture-detection --region us-central1`
+  and delete the Artifact Registry image.
+
+### Put it on your resume
+
+- **Live demo:** the `https://…run.app` URL Cloud Run printed
+- **Source:** `https://github.com/anandjonnadula/Bone-Fracture-Detection-Using-CNN`
+
+Add the live URL to the top of the GitHub `README.md` (there's a placeholder).
+
+### Troubleshooting
+
+- **Build times out / fails** — re-run the command; Cloud Build caches layers so
+  the second build is faster. TensorFlow is the slow part.
+- **Container fails to start** — check *Cloud Run → Logs*. Ensure `SYNC_JOBS=1`
+  and `--memory 2Gi` are set (out-of-memory shows as the container being killed).
+- **502/timeout on first scan** — the first request loads models; `--timeout 300`
+  gives it room. Refresh and try a sample again once it's warm.
+
+---
+
+## Hugging Face Spaces (only if you have HF PRO)
+
+If you have (or get) HF PRO, a Docker Space also works. Create a **Docker**
+Space (CPU basic), then in *Settings → Variables and secrets* set
+`SECRET_KEY` (secret), `DEMO_MODE=1`, `SECURE_COOKIES=1`. The image defaults to
+port 7860 to match. Push a deploy branch (git-LFS for the `.keras` models):
+
+```bash
 git lfs install
-
-# From the project folder, create a deploy branch
 git checkout -b hf-deploy
-
-# Track the large model files with LFS and use the Space's README (front-matter)
 git lfs track "*.keras" "*.npz"
 cp deploy/hf-space-README.md README.md
 git add .gitattributes README.md
-git add --renormalize model/saved_model        # convert the committed models to LFS pointers
-git commit -m "Configure Hugging Face Space (LFS models + Space README)"
-
-# Add the Space as a remote (replace <USER>) and push this branch to its main
+git add --renormalize model/saved_model
+git commit -m "Configure Hugging Face Space"
 git remote add space https://huggingface.co/spaces/<USER>/bone-fracture-detection
-git push space hf-deploy:main
-#   Username: <your HF username>
-#   Password: <your HF write token from step 3>
-
-# Go back to your normal branch — GitHub main is unchanged
+git push space hf-deploy:main          # username = HF user, password = HF write token
 git checkout main
 ```
 
-## 5. Watch it build
+## Other hosts
 
-The Space's **Logs / App** tab shows the Docker build. First build takes
-**~10–15 min** (it installs TensorFlow). When it says *Running*, open the Space
-URL: `https://huggingface.co/spaces/<USER>/bone-fracture-detection`.
-
-Try it: the login page lists the demo accounts, and the upload page has a
-**"Try a sample X-ray"** strip (including a non-X-ray that demos the OOD gate).
-
-## 6. Put it on your resume
-
-- **Live demo:** `https://huggingface.co/spaces/<USER>/bone-fracture-detection`
-- **Source:** `https://github.com/anandjonnadula/Bone-Fracture-Detection-Using-CNN`
-
-Add the live link to the top of the GitHub `README.md` (there's a placeholder
-for it) so visitors can jump straight to the demo.
-
----
-
-## Updating the demo later
-
-After changes on `main`:
-
-```bash
-git checkout hf-deploy
-git merge main -m "sync"          # bring in the changes
-git checkout main -- README.md && cp deploy/hf-space-README.md README.md
-git add README.md && git commit -m "keep Space README"   # if README changed
-git push space hf-deploy:main
-git checkout main
-```
-
-## Troubleshooting
-
-- **Build fails at `pip install`** — confirm the Space is a *Docker* SDK Space
-  (not Gradio/Streamlit); it must build from the `Dockerfile`.
-- **App builds but won't start / 503** — check the Space *Logs*. The first model
-  load takes ~30–60 s; the async pipeline hides this behind the "queued" state.
-- **Push rejected for a large file** — you skipped `git lfs track` / the
-  `--renormalize` step; redo step 4 on a fresh `hf-deploy` branch.
-- **Out of memory** — the free CPU tier (16 GB) is plenty; if you switched to a
-  smaller paid tier, go back to CPU basic.
-
-## Alternatives (not recommended for this app)
-
-Render / Railway free tiers (512 MB RAM) cannot load TensorFlow. Their paid
-tiers work with the same image (set `PORT`, `SECRET_KEY`, `DEMO_MODE=1`), but
-Hugging Face's free CPU tier is the better fit for an ML demo.
+Render / Railway / Fly.io **free** tiers give only 512 MB RAM and cannot load
+TensorFlow. Their paid tiers work with the same image (set `PORT`, `SECRET_KEY`,
+`DEMO_MODE=1`, `SYNC_JOBS=1`). Oracle Cloud "Always Free" ARM VMs (up to 24 GB
+RAM) can run the container for free too, but require provisioning and securing a
+VM yourself — more work than Cloud Run.

@@ -2,8 +2,8 @@
 
 [![CI](https://github.com/anandjonnadula/Bone-Fracture-Detection-Using-CNN/actions/workflows/ci.yml/badge.svg)](https://github.com/anandjonnadula/Bone-Fracture-Detection-Using-CNN/actions/workflows/ci.yml)
 
-**🔗 Live demo:** _deploying to Hugging Face Spaces — replace this line with your Space URL once it's up (see [docs/DEPLOY.md](docs/DEPLOY.md))._
-<!-- Example: **🔗 Live demo:** https://huggingface.co/spaces/anandjonnadula/bone-fracture-detection -->
+**🔗 Live demo:** _deploying to Google Cloud Run — replace this line with your `…run.app` URL once it's up (see [docs/DEPLOY.md](docs/DEPLOY.md))._
+<!-- Example: **🔗 Live demo:** https://bone-fracture-detection-xxxx.run.app -->
 
 An end-to-end deep-learning web application that detects bone fractures from X-ray (radiograph) images using a **calibrated two-stage CNN pipeline**, classifies the fracture type, refuses non-X-ray inputs, explains predictions with an interactive Grad-CAM viewer, and generates PDF diagnostic reports — wrapped in a role-based clinical portal (Patient / Doctor / Admin) with asynchronous processing, doctor annotation tools, and real DICOM support.
 
